@@ -14,3 +14,5 @@
 ### Bernulli
 
 - add code for Bernulli X
+
+- plot the error trend
