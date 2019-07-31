@@ -10,3 +10,5 @@
 **e.g:**
 
 - RandGrid_Bern_5w_01.pkl
+
+### Bernulli
