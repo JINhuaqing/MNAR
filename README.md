@@ -12,3 +12,5 @@
 - RandGrid_Bern_5w_01.pkl
 
 ### Bernulli
+
+- add code for Bernulli X
