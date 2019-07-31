@@ -2,3 +2,11 @@
 
 - Just run simulation for my supervisor
 - Hope it can be submitted by a good journal
+
+### The output name rules
+
+(SearchName)_(Xdistribution)_(MCMCNum)_(ParameterOfX).pkl
+
+**e.g:**
+
+- RandGrid_Bern_5w_01.pkl
