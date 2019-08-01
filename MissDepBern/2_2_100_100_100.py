@@ -1,5 +1,7 @@
+import os
 import sys
-sys.path.append("..")
+sys.path.append("/home/user2/Documents/JIN/MNAR")
+os.chdir("/home/user2/Documents/JIN/MNAR")
 from utilities import *
 import random
 import numpy as np
@@ -56,51 +58,48 @@ def fn22(y, m, sigma=sigma):
     return prefix*linitm*expitm
 
 
-n = 500
-m = 500
-p = 200
+r = 2
+s = 2
+n = 100
+m = 100
+p = 100
 N = 20000
 STm = np.sqrt(n*m/10000)
 
 prob = 0.1
-X = genXdis(n, m, p, type="Bern", prob=prob) 
-#X = torch.tensor(np.random.randint(0, 2, (m, n, p))).float()
-beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
-bTheta0 = genbTheta(n, m) * 7 
-M = bTheta0 + X.matmul(beta0)
-Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
-R = genR(Y)
-# print(X.matmul(beta0).abs().mean(), bTheta0.abs().mean())
-print(R.sum()/R.numel())
-sXs = genXdis(N, p, type="Bern", prob=prob) 
+beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 0, 0, 0]), torch.zeros(p-7)))
+bTheta0 = genbTheta(n, m, rank=r) * 7 
 conDenfs = [fn, fn2, fn22]
 
 
 
-numRG = 100
-# eta = 1/(5*0.75*m*p)
+numIter = 10
 eta = 0.01 
 tol = 1e-4
 TrueParas = [beta0, bTheta0]
-results = [{"beta0":beta0, "bTheta0":bTheta0, "eta":eta, "tol": tol}]
-betainit = torch.rand(p)
-idxs = torch.randperm(p)[:p-8]
-betainit[idxs] = 0
 betainit = beta0* 1.1
 bThetainit = bTheta0 * 1.1
 
 Cb, CT, ST = 465.9, 0.766, 102.3
-betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
-errb = torch.norm(beta0-betahat)
-errT = torch.norm(bTheta0-bThetahat)
-results.append((numI, Cb, errb.item(), betahat.norm().item(), CT, errT.item(), bThetahat.norm().item(), ST))
-print(
-    f"The Iteration number is {numI}, "
-    f"The error of beta is {errb.item():.3f}, "
-    f"The error of bTheta is {errT.item():.3f}."
-)
 
-outres = {"Cb":Cb, "CT": CT, "ST":ST, "Berrs": Berrs, "Terrs": Terrs}
-f = open(f"./outputs/Bern_{Cb:.4g}_{CT:.4f}_{ST:.0f}.pkl", "wb")
-pickle.dump(outres, f)
+outputs = []
+outputs.append({"s":s, "r":r, "p":p, "m":m, "n":n, "bTheta0": bTheta0.cpu(), "beta0":beta0.cpu()})
+for i in range(numIter):
+    X = genXdis(n, m, p, type="Bern", prob=prob) 
+    Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
+    R = genR(Y, inp=4.65)
+    print(R.sum()/R.numel())
+    sXs = genXdis(N, p, type="Bern", prob=prob) 
+    betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
+    errb = torch.norm(beta0-betahat)
+    errT = torch.norm(bTheta0-bThetahat)
+    outputs.append((numI, errb.item(), errT.item(), betahat.norm().item(), bThetahat.norm().item()))
+    print(
+        f"The Iteration number is {numI}, "
+        f"The error of beta is {errb.item():.3f}, "
+        f"The error of bTheta is {errT.item():.3f}."
+    )
+
+f = open(f"./outputs/Bern_{s}_{r}_{p}_{m}_{n}.pkl", "wb")
+pickle.dump(outputs, f)
 f.close()
