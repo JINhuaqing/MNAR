@@ -552,10 +552,10 @@ def genYnorm(X, bTheta, beta, sigma=0.1):
     return Y
 
 
-def genR(Y, type="Linear"):
+def genR(Y, type="Linear", inp=6.5):
     type = type.lower()
     if "linear".startswith(type):
-        Thre = Y  - 6.5#- 8 #- 1/2 # -  7 # -1/2 #+2
+        Thre = Y  - inp#- 8 #- 1/2 # -  7 # -1/2 #+2
         probs = Normal(0, 1).cdf(Thre)
         ranUnif = torch.rand_like(probs)
         R = probs <= ranUnif
