@@ -16,3 +16,5 @@
 - add code for Bernulli X
 
 - plot the error trend
+
+- run simulation for different m, n
