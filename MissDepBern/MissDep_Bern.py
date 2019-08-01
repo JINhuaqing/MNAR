@@ -13,7 +13,7 @@ random.seed(0) #random and transforms
 torch.backends.cudnn.deterministic=True # cudnn
 
 cuda = torch.cuda.is_available()
-# cuda = False
+cuda = False
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 sigma = 0.5
@@ -58,6 +58,7 @@ n = 100
 m = 100
 p = 100
 N = 20000
+STm = np.sqrt(n*m/10000)
 
 prob = 0.1
 X = genXdis(n, m, p, type="Bern", prob=prob) 
@@ -71,26 +72,6 @@ R = genR(Y)
 print(R.sum()/R.numel())
 sXs = genXdis(N, p, type="Bern", prob=prob) 
 conDenfs = [fn, fn2, fn22]
-# etascaleinv = missdepLpbbLoop(bTheta0, beta0, conDenfs, X, Y, R, sXs)
-# etascale = etascaleinv.inverse()
-# U, S, V = etascale.svd()
-# print(S.max())
-
-# Lv = missdepL(bTheta0, beta0, fn, X, Y, R, sXs)
-# Lvb = LBern(bTheta0, beta0, fn, X, Y, R, prob=prob)
-# print(Lv-Lvb, Lvb)
-# t0 = time.time()
-# LpTv = missdepLpT(bTheta0, beta0, conDenfs, X, Y, R, sXs)
-# LpTvb = LpTBern(bTheta0, beta0, conDenfs, X, Y, R, prob=prob)
-# print((LpTv-LpTvb).norm(), LpTvb.norm())
-# Lpbv = missdepLpb(bTheta0, beta0, conDenfs, X, Y, R, sXs)
-# Lpbvb = LpbBern(bTheta0, beta0, conDenfs, X, Y, R, prob=prob)
-# print((Lpbv - Lpbvb).norm(), Lpbvb.norm())
-# t1 = time.time()
-# print(t1-t0)
-# raise SystemExit
-
-
 
 
 
@@ -106,7 +87,7 @@ betainit[idxs] = 0
 betainit = beta0* 1.1
 bThetainit = bTheta0 * 1.1
 
-Cb, CT, ST = 103.5, 100*0.2146, 4660
+Cb, CT, ST = 465.9, 0.766, 102.3*STm
 betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
 errb = torch.norm(beta0-betahat)
 errT = torch.norm(bTheta0-bThetahat)
