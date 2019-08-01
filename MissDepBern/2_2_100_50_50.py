@@ -62,8 +62,8 @@ def fn22(y, m, sigma=sigma):
 
 r = 2
 s = 2
-n = 100
-m = 100
+n = 50
+m = 50
 p = 100
 N = 20000
 STm = np.sqrt(n*m/10000)

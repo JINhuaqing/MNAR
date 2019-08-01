@@ -64,7 +64,7 @@ r = 2
 s = 2
 n = 100
 m = 100
-p = 100
+p = 200
 N = 20000
 STm = np.sqrt(n*m/10000)
 
@@ -79,7 +79,7 @@ numIter = 10
 eta = 0.01 
 tol = 1e-4
 TrueParas = [beta0, bTheta0]
-betainit = beta0* 1.1
+betainit = beta0* 1.5
 bThetainit = bTheta0 * 1.1
 
 Cb, CT, ST = 465.9, 0.766, 102.3

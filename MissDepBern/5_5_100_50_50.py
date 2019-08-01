@@ -60,16 +60,16 @@ def fn22(y, m, sigma=sigma):
     return prefix*linitm*expitm
 
 
-r = 2
-s = 2
-n = 100
-m = 100
+r = 5
+s = 5
+n = 50
+m = 50
 p = 100
 N = 20000
 STm = np.sqrt(n*m/10000)
 
 prob = 0.1
-beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 0, 0, 0]), torch.zeros(p-7)))
+beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
 bTheta0 = genbTheta(n, m, rank=r) * 7 
 conDenfs = [fn, fn2, fn22]
 
@@ -89,7 +89,7 @@ outputs.append({"s":s, "r":r, "p":p, "m":m, "n":n, "bTheta0": bTheta0.cpu(), "be
 for i in range(numIter):
     X = genXdis(n, m, p, type="Bern", prob=prob) 
     Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
-    R = genR(Y, inp=4.65)
+    R = genR(Y, inp=6.5)
     print(R.sum()/R.numel())
     sXs = genXdis(N, p, type="Bern", prob=prob) 
     betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
