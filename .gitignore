@@ -2,3 +2,4 @@
 plot_file/
 imgs*/
 outputs/*.py
+__pycache__/
