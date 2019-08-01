@@ -1,3 +1,5 @@
+import sys
+sys.path.append("..")
 from utilities import *
 import random
 import numpy as np
@@ -54,9 +56,9 @@ def fn22(y, m, sigma=sigma):
     return prefix*linitm*expitm
 
 
-n = 100
-m = 100
-p = 100
+n = 500
+m = 500
+p = 200
 N = 20000
 STm = np.sqrt(n*m/10000)
 
@@ -87,7 +89,7 @@ betainit[idxs] = 0
 betainit = beta0* 1.1
 bThetainit = bTheta0 * 1.1
 
-Cb, CT, ST = 465.9, 0.766, 102.3*STm
+Cb, CT, ST = 465.9, 0.766, 102.3
 betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
 errb = torch.norm(beta0-betahat)
 errT = torch.norm(bTheta0-bThetahat)
