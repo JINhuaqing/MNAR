@@ -2,7 +2,6 @@ import numpy as np
 from pickle import load
 from prettytable import PrettyTable
 import pickle
-
 with open("./RandGrid_Bern_2w_01_001_errs_init15.pkl", "rb") as f:
     dataall = load(f)
 
