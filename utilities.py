@@ -9,11 +9,28 @@ __all__  = [
     "missdepLpb", "missdepLpbLoop", "missdepLR", "SoftTO", "MCGD", "Lnormal", 
     "genXdis", "genX", "genR", "genbTheta", "genYnorm", "genbeta", "MCGDnormal", 
     "omegat" , "Rub", "ParaDiff", "LamTfn", "Lambfn", "LpTnormal", "Lpbnormal",
-    "LBern", "LpTBern", "LpbBern", "MCGDBern"
+    "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm"
 ]
 
 
 seps = 1e-15
+
+
+def H2fnorm(y, m, sigma=0.5):
+    n, m = y.shape
+    return -torch.ones(n, m) /sigma**2
+
+def S2fnorm(y, m, sigma):
+    return (y-m)/sigma**2
+
+
+def Dshlowerfnorm(Y, X, beta, bTheta, sigma=0.5):
+    m = bTheta + X.matmul(beta)
+    H2v = H2fnorm(Y, m, sigma)
+    S2v = S2fnorm(Y, m, sigma)
+    Ds2 = S2v.abs().max().item()
+    Dh2 = H2v.abs().max().item()
+    return Ds2, Dh2
 
 
 def Blist(s):
