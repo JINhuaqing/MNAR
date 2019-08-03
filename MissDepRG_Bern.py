@@ -68,6 +68,8 @@ M = bTheta0 + X.matmul(beta0)
 Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
 R = genR(Y)
 # print(X.matmul(beta0).abs().mean(), bTheta0.abs().mean())
+#Ds2, Dh2 = Dshlowerfnorm(Y, X, beta0, bTheta0, sigma)
+#print(2*Dh2+2*Ds2**2)
 print(R.sum()/R.numel())
 sXs = genXdis(N, p, type="Bern", prob=prob) 
 conDenfs = [fn, fn2, fn22]
