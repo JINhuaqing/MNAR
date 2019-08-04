@@ -18,6 +18,7 @@ cuda = torch.cuda.is_available()
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 sigma = 0.5
+a, b = -50, 50
 
 
 def torchstnpdf(y):
@@ -60,7 +61,7 @@ def torchstnpdf(y):
 #     return prefix*linitm*expitm
 
 
-def ftn(y, m, bsXs=None, sigma=sigma, a=-100, b=100):
+def ftn(y, m, bsXs=None, sigma=sigma, a=a, b=b):
     # y     : n x m
     # m     : n x m 
     # bsXs  : N
@@ -77,7 +78,7 @@ def ftn(y, m, bsXs=None, sigma=sigma, a=-100, b=100):
     return tv
 
 
-def ftn2(y, m, bsXs=None, sigma=sigma, a=-100, b=100):
+def ftn2(y, m, bsXs=None, sigma=sigma, a=a, b=b):
     sigma2 = sigma**2
     Z = (STN.cdf(b/sigma) - STN.cdf(a/sigma)) * sigma
     if bsXs is not None:
@@ -93,7 +94,7 @@ def ftn2(y, m, bsXs=None, sigma=sigma, a=-100, b=100):
     return tv
 
 
-def ftn22(y, m, bsXs=None, sigma=sigma, a=-100, b=100):
+def ftn22(y, m, bsXs=None, sigma=sigma, a=a, b=b):
     sigma2 = sigma**2
     Z = (STN.cdf(b/sigma) - STN.cdf(a/sigma)) * sigma
     if bsXs is not None:
@@ -119,14 +120,13 @@ X = genXdis(n, m, p, type="mvnorm", sigmax=sigmax)
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
 bTheta0 = genbTheta(n, m) * 7
 M = bTheta0 + X.matmul(beta0)
-Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
-#Y = genYtnorm(X, bTheta0, beta0, -100, 100,sigma=sigma)
+# Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
+Y = genYtnorm(X, bTheta0, beta0, -100, 100,sigma=sigma)
 R = genR(Y)
 # print(X.matmul(beta0).abs().mean(), bTheta0.abs().mean())
 print(R.sum()/R.numel())
-sda
 sXs = genXdis(N, p, type="mvnorm", sigmax=sigmax) 
-conDenfs = [fn, fn2, fn22]
+conDenfs = [ftn, ftn2, ftn22]
 # etascaleinv = missdepLpbbLoop(bTheta0, beta0, conDenfs, X, Y, R, sXs)
 # etascale = etascaleinv.inverse()
 # U, S, V = etascale.svd()
