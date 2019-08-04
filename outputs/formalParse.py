@@ -2,7 +2,7 @@ import numpy as np
 from pickle import load
 
 
-with open("Bern_5_5_100_200_200.pkl", "rb") as f:
+with open("Bern_5_5_100_50_50.pkl", "rb") as f:
     data = load(f)
 
 data = data[1:]

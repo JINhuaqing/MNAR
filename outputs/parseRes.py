@@ -3,7 +3,7 @@ from pickle import load
 from prettytable import PrettyTable
 import pickle
 
-with open("./RandGrid_Bern_2w_01_001_errs_init15.pkl", "rb") as f:
+with open("./RandGrid_Bern_2w_01_001_errs_init15_STbd.pkl", "rb") as f:
     dataall = load(f)
 
 data, errss = dataall[0], dataall[1]

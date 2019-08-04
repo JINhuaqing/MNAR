@@ -16,7 +16,7 @@ cuda = torch.cuda.is_available()
 # cuda = False
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
-sigma = 0.5
+sigma = 0.01
 
 
 def fn(y, m, bsXs=None, sigma=sigma):
@@ -68,8 +68,8 @@ M = bTheta0 + X.matmul(beta0)
 Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
 R = genR(Y)
 # print(X.matmul(beta0).abs().mean(), bTheta0.abs().mean())
-#Ds2, Dh2 = Dshlowerfnorm(Y, X, beta0, bTheta0, sigma)
-#print(2*Dh2+2*Ds2**2)
+Ds2, Dh2 = Dshlowerfnorm(Y, X, beta0, bTheta0, sigma)
+STbd = 2*Dh2+2*Ds2**2
 print(R.sum()/R.numel())
 sXs = genXdis(N, p, type="Bern", prob=prob) 
 conDenfs = [fn, fn2, fn22]
@@ -97,7 +97,7 @@ conDenfs = [fn, fn2, fn22]
 
 Cbpool = np.exp(np.linspace(np.log(0.1), np.log(1e4), 200))
 CTpool = Cbpool/10
-STpool = np.exp(np.linspace(np.log(100), np.log(1e4), 200))
+STpool = np.exp(np.linspace(np.log(1), np.log(1e2), 100))
 np.random.shuffle(Cbpool)
 np.random.shuffle(CTpool)
 np.random.shuffle(STpool)
@@ -119,7 +119,7 @@ Errs = []
 for i in range(numRG):
     len1, len2, len3  = len(Cbpool), len(CTpool), len(STpool)
     idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
-    Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]
+    Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
     try:
        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
@@ -142,7 +142,7 @@ for i in range(numRG):
             f"The error of bTheta is {errT.item():.3f}."
         )
 
-f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init15.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init15_STbd.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()
 # betahat, bThetahat, _ = MCGD(1000, X, Y, R, sXs, conDenfs, eta=1e-1, debug=0, Cb=10, CT=0.8, tol=1e-4, log=1)
