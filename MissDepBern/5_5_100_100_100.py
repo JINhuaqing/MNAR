@@ -62,8 +62,8 @@ def fn22(y, m, sigma=sigma):
 
 r = 5
 s = 5
-n = 100
-m = 100
+n = 50
+m = 50
 p = 100
 N = 20000
 STm = np.sqrt(n*m/10000)
@@ -75,7 +75,7 @@ conDenfs = [fn, fn2, fn22]
 
 
 
-numIter = 10
+numIter = 50
 eta = 0.01 
 tol = 1e-4
 TrueParas = [beta0, bTheta0]
@@ -91,8 +91,10 @@ for i in range(numIter):
     Y = genYnorm(X, bTheta0, beta0, sigma=sigma)
     R = genR(Y, inp=6.5)
     print(R.sum()/R.numel())
+    Ds2, Dh2 = Dshlowerfnorm(Y, X, beta0, bTheta0, sigma)
+    ST = 2*Dh2+2*Ds2**2
     sXs = genXdis(N, p, type="Bern", prob=prob) 
-    betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
+    betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
     errb = torch.norm(beta0-betahat)
     errT = torch.norm(bTheta0-bThetahat)
     outputs.append((numI, errb.item(), errT.item(), betahat.norm().item(), bThetahat.norm().item()))
