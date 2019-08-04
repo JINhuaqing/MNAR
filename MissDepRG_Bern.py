@@ -115,8 +115,8 @@ N = 20000
 
 prob = 0.1
 X = genXdis(n, m, p, type="Bern", prob=prob) 
-beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
-bTheta0 = genbTheta(n, m) * 7 
+beta0 = torch.cat((torch.tensor([5.0, 0, 5.478, 0, 0, 0, 0]), torch.zeros(p-7)))
+bTheta0 = genbTheta(n, m, rank=2) * 7 
 M = bTheta0 + X.matmul(beta0)
 Y = genYtnorm(X, bTheta0, beta0, a, b, sigma=sigma)
 R = genR(Y)
