@@ -3,13 +3,14 @@ import numpy as np
 import numpy.random as npr
 from torch.distributions.normal import Normal
 from prettytable import PrettyTable
+from scipy.stats import truncnorm
 
 __all__  = [
     "missdepL", "missdepLLoop", "missdepLpT", "missdepLpTLoop", "missdepLpbbLoop",
     "missdepLpb", "missdepLpbLoop", "missdepLR", "SoftTO", "MCGD", "Lnormal", 
     "genXdis", "genX", "genR", "genbTheta", "genYnorm", "genbeta", "MCGDnormal", 
     "omegat" , "Rub", "ParaDiff", "LamTfn", "Lambfn", "LpTnormal", "Lpbnormal",
-    "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm"
+    "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm", "genYtnorm"
 ]
 
 
@@ -568,6 +569,16 @@ def genYnorm(X, bTheta, beta, sigma=0.1):
     Y = torch.randn(n, m)*sigma + M
     return Y
 
+
+def genYtnorm(X, bTheta, beta, a, b, sigma=0.1):
+    n, m, _ = X.shape
+    M = bTheta + X.matmul(beta)
+    Marr = M.cpu().numpy()
+    aM = a+Marr
+    bM = b+Marr
+    Yarr = truncnorm.rvs(aM, bM, loc=Marr, scale=sigma)
+    Y = torch.tensor(Yarr).float()
+    return Y
 
 def genR(Y, type="Linear", inp=6.5):
     type = type.lower()
