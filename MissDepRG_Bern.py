@@ -166,12 +166,12 @@ results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}
 #betainit[idxs] = 0
 betainit = beta0* 1.1
 bThetainit = bTheta0 * 1.1
-Cb, CT = 1, 10
 
 print(results)
 Errs = []
 for i in range(numRG):
     len1, len2, len3  = len(Cbpool), len(CTpool), len(STpool)
+    Cb, CT = 1, 10
     while Cb < CT:
         idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
         Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
