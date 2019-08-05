@@ -148,12 +148,12 @@ conDenfs = [ftn, ftn2, ftn22]
 
 
 
-Cbpool = np.exp(np.linspace(np.log(0.1), np.log(1e4), 200))
+Cbpool = np.exp(np.linspace(np.log(10), np.log(1e5), 200))
 CTpool = Cbpool/10
 STpool = np.exp(np.linspace(np.log(1), np.log(1e2), 100))
-np.random.shuffle(Cbpool)
-np.random.shuffle(CTpool)
-np.random.shuffle(STpool)
+#np.random.shuffle(Cbpool)
+#np.random.shuffle(CTpool)
+#np.random.shuffle(STpool)
 
 numRG = 100
 # eta = 1/(5*0.75*m*p)
@@ -161,18 +161,20 @@ eta = 0.01
 tol = 1e-4
 TrueParas = [beta0, bTheta0]
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
-betainit = torch.rand(p)
-idxs = torch.randperm(p)[:p-8]
-betainit[idxs] = 0
+#betainit = torch.rand(p)
+#idxs = torch.randperm(p)[:p-8]
+#betainit[idxs] = 0
 betainit = beta0* 1.1
 bThetainit = bTheta0 * 1.1
+Cb, CT = 1, 10
 
 print(results)
 Errs = []
 for i in range(numRG):
     len1, len2, len3  = len(Cbpool), len(CTpool), len(STpool)
-    idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
-    Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
+    while Cb < CT:
+        idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
+        Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
     try:
         betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
