@@ -150,7 +150,7 @@ conDenfs = [ftn, ftn2, ftn22]
 
 Cbpool = np.exp(np.linspace(np.log(0.1), np.log(1e4), 200))
 CTpool = Cbpool/10
-STpool = np.exp(np.linspace(np.log(1), np.log(1e3), 100))
+STpool = np.exp(np.linspace(np.log(1), np.log(1e2), 100))
 np.random.shuffle(Cbpool)
 np.random.shuffle(CTpool)
 np.random.shuffle(STpool)
@@ -164,8 +164,8 @@ results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}
 betainit = torch.rand(p)
 idxs = torch.randperm(p)[:p-8]
 betainit[idxs] = 0
-betainit = beta0* 1.5
-bThetainit = bTheta0 * 1.5
+betainit = beta0* 1.1
+bThetainit = bTheta0 * 1.1
 
 print(results)
 Errs = []
@@ -195,7 +195,7 @@ for i in range(numRG):
             f"The error of bTheta is {errT.item():.3f}."
         )
 
-f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init15_tn.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init11_tn.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()
 # betahat, bThetahat, _ = MCGD(1000, X, Y, R, sXs, conDenfs, eta=1e-1, debug=0, Cb=10, CT=0.8, tol=1e-4, log=1)
