@@ -361,9 +361,7 @@ def LpTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
     TbX = bTheta + betaX
 
     itm1 = (f2(Y, TbX)/(f(Y, TbX)+seps))
-
     
-
     itm = R * (itm1 - itm2)/(m*n)
     return -itm
 
@@ -574,9 +572,9 @@ def genYtnorm(X, bTheta, beta, a, b, sigma=0.1):
     n, m, _ = X.shape
     M = bTheta + X.matmul(beta)
     Marr = M.cpu().numpy()
-    aM = a+Marr
-    bM = b+Marr
-    Yarr = truncnorm.rvs(aM, bM, loc=Marr, scale=sigma)
+    a = a/sigma
+    b = b/sigma
+    Yarr = truncnorm.rvs(a, b, loc=Marr, scale=sigma)
     Y = torch.tensor(Yarr).float()
     return Y
 
@@ -758,6 +756,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
             betaNewRaw = betaOld - eta * LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
         betaNew = SoftTO(betaNewRaw, eta*Lamb)
         NumN0New = p - (betaNew.abs()==0).sum().float()
+        #print(NumN0New, NumN0Old)
         #print((betaNew.abs()==0 ).sum().float()/p, betaNew.abs().min())
 
         # compute the loss function
