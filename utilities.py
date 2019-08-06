@@ -738,6 +738,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     betaOld = torch.rand(p) if betainit is None else betainit
     RbOld = torch.rand(1) if Rbinit is None else Rbinit
     bThetaOld = torch.rand(n, m) if bThetainit is None else bThetainit
+    reCh = 1
 
     Lamb = Lambfn(Cb, n, m)
     LamT = LamTfn(CT, n, m, p, sps)
@@ -794,18 +795,19 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
             Berrs.append((beta0-betaOld).norm().item())        
             Terrs.append((bTheta0-bThetaOld).norm().item())
         if t >= 1:
-            Lk1 = losses[-1]
-            Lk = losses[-2]
-            if (np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) < tol):
+            Lk1 = Losses[-1]
+            Lk = Losses[-2]
+            reCh = np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) 
+            if (reCh < tol):
                 break
         if log==1:
             tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta"])
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta", "LamT", "Alpha", "Omegat", "Rb", "tildeRb", "Rub", "Norm of Betat", "Norm of Thetat"])
+            tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta", "reCh", "Alpha", "Omegat", "Rb", "tildeRb", "Rub", "Norm of Betat", "Norm of Thetat"])
             tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
-                f"{LamT.item():>8.3g}", f"{alpha1.item():>8.3g}", f"{omeganew.item():>8.3g}",f"{RbNew.item():>8.3g}",
+                f"{reCh:>8.4g}", f"{alpha1.item():>8.3g}", f"{omeganew.item():>8.3g}",f"{RbNew.item():>8.3g}",
                 f"{tRbNew.item():>8.3g}", f"{RubNew.item():>8.3g}", f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}"])
             print(tb2)
         # update the Beta and bTheta
