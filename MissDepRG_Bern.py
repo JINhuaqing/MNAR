@@ -151,10 +151,10 @@ for i in range(numRG):
     while Cb < CT:
         idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
         Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
-#        Cb, CT, ST = 146, 9.222, 148.534
+        Cb, CT, ST = 146, 9.222, 148.534
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
     try:
-        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, sps=0.05)
+        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, sps=0.05)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100, ST))
         Errs.append([])

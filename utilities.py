@@ -15,6 +15,8 @@ __all__  = [
 
 
 seps = 1e-15
+dtorchdtype = torch.float32
+dnpdtype = np.float32
 
 
 def H2fnorm(y, m, sigma=0.5):
@@ -43,11 +45,11 @@ def Blist(s):
         strbi = (s-len(strbi)) * "0" + strbi
         mat.append(list(strbi))
     matarr = np.array(mat) 
-    return matarr.astype(np.float32)
+    return matarr.astype(dnpdtype)
 
 def intBernh(f, bTheta, beta, Y, prob):
     idxNon0 = torch.nonzero(beta).view(-1)
-    s = (beta != 0).sum().float().item()
+    s = (beta != 0).sum().to(dtorchdtype).item()
     s = int(s)
     if s != 0:
         Blistmat = torch.tensor(Blist(s))
@@ -65,7 +67,7 @@ def intBernh(f, bTheta, beta, Y, prob):
 def intBernhX(f, bTheta, beta, Y, prob):
     p = beta.shape[0]
     idxNon0 = torch.nonzero(beta).view(-1)
-    s = (beta != 0).sum().float().item()
+    s = (beta != 0).sum().to(dtorchdtype).item()
     s = int(s)
     if s != 0:
         Blistmat = torch.tensor(Blist(s))
@@ -498,13 +500,13 @@ def Rub(Lv, beta, Rb, LamT, Lamb):
 
 def Lambfn(C, n, m):
     rawv = np.sqrt(np.log(m+n))/m/n
-    return torch.tensor([C*rawv], dtype=torch.float)
+    return torch.tensor([C*rawv], dtype=dtorchdtype)
 
 def LamTfn(C, n, m, p, sp=0.1):
     d = np.sqrt(m*n)
     rawvs = [np.sqrt(np.log(d)/d), np.sqrt(sp*p*np.log(p))/d, (np.log(p))**(1/4)/np.sqrt(d)]
     rawv = np.max(rawvs)
-    return torch.tensor([C*rawv], dtype=torch.float)
+    return torch.tensor([C*rawv], dtype=dtorchdtype)
 
 
 def genX(n, m, p):
@@ -537,7 +539,7 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
         raise TypeError("No such type of X!")
     if len(args) == 2:
         X = X.transpose()
-    return torch.tensor(X).float()
+    return torch.tensor(X).to(dtorchdtype)
 
 
 def genbTheta(n, m, rank=4):
@@ -575,7 +577,7 @@ def genYtnorm(X, bTheta, beta, a, b, sigma=0.1):
     a = a/sigma
     b = b/sigma
     Yarr = truncnorm.rvs(a, b, loc=Marr, scale=sigma)
-    return torch.tensor(Yarr).float()
+    return torch.tensor(Yarr).to(dtorchdtype)
 
 
 def genR(Y, type="Linear", inp=6.5):
@@ -592,7 +594,7 @@ def genR(Y, type="Linear", inp=6.5):
         R = probs >= ranUnif
     else:
         raise TypeError("Wrong type of independence!")
-    return R.float()
+    return R.to(dtorchdtype)
 
 
 def ParaDiff(Olds, News):
@@ -620,7 +622,7 @@ def MCGDnormal(MaxIters, X, Y, R, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0,
         # update beta
         betaNewRaw = betaOld - eta * Lpbnormal(bThetaOld, betaOld, X, Y, R, sigma=sigma, sigmax=sigmax)
         betaNew = SoftTO(betaNewRaw, eta*Lamb)
-        #print((betaNew.abs()<=1e-2 ).sum().float()/p, betaNew.abs().min())
+        #print((betaNew.abs()<=1e-2 ).sum().to(dtorchdtype)/p, betaNew.abs().min())
 
         # compute the loss function
         LvOld = Lnormal(bThetaOld, betaNew, X, Y, R, sigma=sigma, sigmax=sigmax)
@@ -631,10 +633,9 @@ def MCGDnormal(MaxIters, X, Y, R, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0,
         LpTvOld = LpTnormal(bThetaOld, betaNew, X, Y, R, sigma=sigma, sigmax=sigmax)
         svdres = torch.svd(LpTvOld)
         alpha1, u, v = svdres.S.max(), svdres.U[:, 0].unsqueeze(dim=-1), svdres.V[:, 0].unsqueeze(dim=-1)
-        
 
         if LamT >= alpha1:
-            tbTNew, tRbNew = torch.zeros(n, m, dtype=torch.float), torch.tensor([0.0])
+            tbTNew, tRbNew = torch.zeros(n, m, dtype=dtorchdtype), torch.tensor([0.0])
         else:
             tbTNew, tRbNew =  -RubNew * u.matmul(v.t()), RubNew
 
@@ -685,7 +686,7 @@ def MCGD(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, 
         # update beta
         betaNewRaw = betaOld - eta * missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
         betaNew = SoftTO(betaNewRaw, eta*Lamb)
-        #print((betaNew.abs()==0 ).sum().float()/p, betaNew.abs().min())
+        #print((betaNew.abs()==0 ).sum().to(dtorchdtype)/p, betaNew.abs().min())
 
         # compute the loss function
         LvOld = missdepL(bThetaOld, betaNew, f, X, Y, R, sXs)
@@ -699,7 +700,7 @@ def MCGD(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, 
         
 
         if LamT >= alpha1:
-            tbTNew, tRbNew = torch.zeros(n, m, dtype=torch.float), torch.tensor([0.0])
+            tbTNew, tRbNew = torch.zeros(n, m, dtype=dtorchdtype), torch.tensor([0.0])
         else:
             tbTNew, tRbNew =  -RubNew * u.matmul(v.t()), RubNew
 
@@ -750,15 +751,15 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
 
     for t in range(MaxIters):
         # update beta
-        NumN0Old = p - (betaOld.abs()==0).sum().float()
+        NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
         if NumN0Old > numExact:
             betaNewRaw = betaOld - eta * missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
         else:
             betaNewRaw = betaOld - eta * LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
         betaNew = SoftTO(betaNewRaw, eta*Lamb)
-        NumN0New = p - (betaNew.abs()==0).sum().float()
+        NumN0New = p - (betaNew.abs()==0).sum().to(dtorchdtype)
         #print(NumN0New, NumN0Old)
-        #print((betaNew.abs()==0 ).sum().float()/p, betaNew.abs().min())
+        #print((betaNew.abs()==0 ).sum().to(dtorchdtype)/p, betaNew.abs().min())
 
         # compute the loss function
         if NumN0New > numExact:
@@ -779,7 +780,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         
 
         if LamT >= alpha1:
-            tbTNew, tRbNew = torch.zeros(n, m, dtype=torch.float), torch.tensor([0.0])
+            tbTNew, tRbNew = torch.zeros(n, m, dtype=dtorchdtype), torch.tensor([0.0])
         else:
             tbTNew, tRbNew =  -RubNew * u.matmul(v.t()), RubNew
 
