@@ -151,9 +151,9 @@ conDenfs = [ftn, ftn2, ftn22]
 Cbpool = np.exp(np.linspace(np.log(10), np.log(1e5), 200))
 CTpool = Cbpool/10
 STpool = np.exp(np.linspace(np.log(1), np.log(1e2), 100))
-#np.random.shuffle(Cbpool)
-#np.random.shuffle(CTpool)
-#np.random.shuffle(STpool)
+np.random.shuffle(Cbpool)
+np.random.shuffle(CTpool)
+np.random.shuffle(STpool)
 
 numRG = 100
 # eta = 1/(5*0.75*m*p)
@@ -197,7 +197,7 @@ for i in range(numRG):
             f"The error of bTheta is {errT.item():.3f}."
         )
 
-f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init11_tn.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init11_tn2.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()
 # betahat, bThetahat, _ = MCGD(1000, X, Y, R, sXs, conDenfs, eta=1e-1, debug=0, Cb=10, CT=0.8, tol=1e-4, log=1)
