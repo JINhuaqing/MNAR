@@ -575,8 +575,8 @@ def genYtnorm(X, bTheta, beta, a, b, sigma=0.1):
     a = a/sigma
     b = b/sigma
     Yarr = truncnorm.rvs(a, b, loc=Marr, scale=sigma)
-    Y = torch.tensor(Yarr).float()
-    return Y
+    return torch.tensor(Yarr).float()
+
 
 def genR(Y, type="Linear", inp=6.5):
     type = type.lower()
@@ -728,7 +728,7 @@ def MCGD(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, 
     return betaOld, bThetaOld, RbOld, t+1
 
 
-def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0, betainit=None, bThetainit=None, Rbinit=None, tol=1e-4, ST=10000, prob=0.5, ErrOpts=0):
+def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0, betainit=None, bThetainit=None, Rbinit=None, tol=1e-4, ST=10000, prob=0.5, ErrOpts=0, sps=0.05):
     n, m, p = X.shape
     f, f2, _ = conDenfs
     Berrs = []
@@ -740,7 +740,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     bThetaOld = torch.rand(n, m) if bThetainit is None else bThetainit
 
     Lamb = Lambfn(Cb, n, m)
-    LamT = LamTfn(CT, n, m, p, 0.05)
+    LamT = LamTfn(CT, n, m, p, sps)
     if log>=1:
         tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "eta"])
         tb1.add_row(["", f"{Lamb.item():>5.3g}", f"{LamT.item():>5.3g}", f"{eta:>5.3g}"])
@@ -789,12 +789,14 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         RbNew = RbOld + omeganew * (tRbNew-RbOld)
 
         #print(betaNew)
-        paradiff = ParaDiff([betaOld, bThetaOld], [betaNew, bThetaNew])
+        #paradiff = ParaDiff([betaOld, bThetaOld], [betaNew, bThetaNew])
         if ErrOpts:
             Berrs.append((beta0-betaOld).norm().item())        
             Terrs.append((bTheta0-bThetaOld).norm().item())
         if t >= 1:
-            if (paradiff < tol) or (np.abs(Losses[-1]-Losses[-2]) < tol):
+            Lk1 = losses[-1]
+            Lk = losses[-2]
+            if (np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) < tol):
                 break
         if log==1:
             tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta"])
