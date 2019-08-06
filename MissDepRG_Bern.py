@@ -18,7 +18,7 @@ cuda = torch.cuda.is_available()
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 sigma = 0.5
-a, b = -50, 50
+a, b = -10, 10 
 
 def torchstnpdf(y):
     pi = torch.tensor([np.pi])
@@ -115,37 +115,16 @@ N = 20000
 
 prob = 0.1
 X = genXdis(n, m, p, type="Bern", prob=prob) 
-beta0 = torch.cat((torch.tensor([5.0, 0, 5.478, 0, 0, 0, 0]), torch.zeros(p-7)))
-bTheta0 = genbTheta(n, m, rank=2) * 7 
+beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
+bTheta0 = genbTheta(n, m) * 7 
 M = bTheta0 + X.matmul(beta0)
 Y = genYtnorm(X, bTheta0, beta0, a, b, sigma=sigma)
-R = genR(Y)
-# print(X.matmul(beta0).abs().mean(), bTheta0.abs().mean())
+R = genR(Y, inp=6.5)
 Ds2, Dh2 = Dshlowerfnorm(Y, X, beta0, bTheta0, sigma)
 STbd = 2*Dh2+2*Ds2**2
 print(R.sum()/R.numel())
 sXs = genXdis(N, p, type="Bern", prob=prob) 
 conDenfs = [ftn, ftn2, ftn22]
-# etascaleinv = missdepLpbbLoop(bTheta0, beta0, conDenfs, X, Y, R, sXs)
-# etascale = etascaleinv.inverse()
-# U, S, V = etascale.svd()
-# print(S.max())
-
-# Lv = missdepL(bTheta0, beta0, fn, X, Y, R, sXs)
-# Lvb = LBern(bTheta0, beta0, fn, X, Y, R, prob=prob)
-# print(Lv-Lvb, Lvb)
-# t0 = time.time()
-# LpTv = missdepLpT(bTheta0, beta0, conDenfs, X, Y, R, sXs)
-# LpTvb = LpTBern(bTheta0, beta0, conDenfs, X, Y, R, prob=prob)
-# print((LpTv-LpTvb).norm(), LpTvb.norm())
-# Lpbv = missdepLpb(bTheta0, beta0, conDenfs, X, Y, R, sXs)
-# Lpbvb = LpbBern(bTheta0, beta0, conDenfs, X, Y, R, prob=prob)
-# print((Lpbv - Lpbvb).norm(), Lpbvb.norm())
-# t1 = time.time()
-# print(t1-t0)
-# raise SystemExit
-
-
 
 
 Cbpool = np.exp(np.linspace(np.log(10), np.log(1e5), 200))
@@ -158,12 +137,9 @@ np.random.shuffle(STpool)
 numRG = 100
 # eta = 1/(5*0.75*m*p)
 eta = 0.01 
-tol = 1e-4
+tol = 1e-5
 TrueParas = [beta0, bTheta0]
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
-#betainit = torch.rand(p)
-#idxs = torch.randperm(p)[:p-8]
-#betainit[idxs] = 0
 betainit = beta0* 1.1
 bThetainit = bTheta0 * 1.1
 
@@ -175,15 +151,17 @@ for i in range(numRG):
     while Cb < CT:
         idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
         Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
+#        Cb, CT, ST = 465, 0.766, 102.341
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
     try:
-        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
-    except RuntimeError:
+        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, sps=0.05)
+    except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100, ST))
         Errs.append([])
         print(
             f"The {i+1}th/{numRG},"
-            f"Iteration Fails!"
+            f"Iteration Fails!", 
+            e
         )
     else:
         errb = torch.norm(beta0-betahat)
@@ -197,13 +175,6 @@ for i in range(numRG):
             f"The error of bTheta is {errT.item():.3f}."
         )
 
-f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init11_tn2.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_2w_01_001_errs_init11_tn_r5s5.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()
-# betahat, bThetahat, _ = MCGD(1000, X, Y, R, sXs, conDenfs, eta=1e-1, debug=0, Cb=10, CT=0.8, tol=1e-4, log=1)
-# print(torch.norm(beta0-betahat))
-# print(torch.norm(beta0))
-# print(torch.norm(bTheta0-bThetahat))
-# print(torch.norm(bTheta0))
-# print(betahat)
-# betahat, bThetahat, _ = MCGD(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=10, CT=0.1, tol=tol, log=2, sigmax=sigmax, sigma=sigma)
