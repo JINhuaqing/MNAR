@@ -15,7 +15,7 @@ import timeit
 import time
 from scipy.stats import norm as STN
 
-torch.cuda.set_device("cuda:2")
+torch.cuda.set_device("cuda:0")
 torch.manual_seed(0) # cpu
 torch.cuda.manual_seed(0) #gpu
 np.random.seed(0) #numpy
