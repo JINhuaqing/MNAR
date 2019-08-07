@@ -20,7 +20,8 @@ random.seed(0) #random and transforms
 torch.backends.cudnn.deterministic=True # cudnn
 
 cuda = torch.cuda.is_available()
-#cuda = False
+cuda = False
+torch.set_num_threads(8)
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 sigma = 0.5
@@ -95,7 +96,7 @@ conDenfs = [ftn, ftn2, ftn22]
 
 
 
-numIter = 50
+numIter = 10
 eta = 0.01 
 tol = 1e-5
 TrueParas = [beta0, bTheta0]
@@ -125,6 +126,6 @@ for i in range(numIter):
         f"The error of bTheta is {errT.item():.3f}."
     )
 
-f = open(f"./outputs/Bern_{s}_{r}_{p}_{m}_{n}.pkl", "wb")
+f = open(f"./outputs/Bern_{s}_{r}_{p}_{m}_{n}_demo.pkl", "wb")
 pickle.dump(outputs, f)
 f.close()
