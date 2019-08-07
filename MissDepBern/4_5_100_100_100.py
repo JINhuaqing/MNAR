@@ -2,8 +2,10 @@ import os
 import sys
 #sys.path.append("/home/user2/Documents/JIN/MNAR")
 #os.chdir("/home/user2/Documents/JIN/MNAR")
-sys.path.append("/home/feijiang//jin/MissDep")
-os.chdir("/home/feijiang/jin/MissDep")
+#sys.path.append("/home/feijiang/jin/MissDep")
+#os.chdir("/home/feijiang/jin/MissDep")
+sys.path.append("/workspace/data/jin/MNAR")
+os.chdir("/workspace/data/jin/MNAR")
 from utilities import *
 import random
 import numpy as np
@@ -13,6 +15,7 @@ import timeit
 import time
 from scipy.stats import norm as STN
 
+torch.cuda.set_device("cuda:2")
 torch.manual_seed(0) # cpu
 torch.cuda.manual_seed(0) #gpu
 np.random.seed(0) #numpy
@@ -20,7 +23,7 @@ random.seed(0) #random and transforms
 torch.backends.cudnn.deterministic=True # cudnn
 
 cuda = torch.cuda.is_available()
-cuda = False
+#cuda = False
 torch.set_num_threads(8)
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
@@ -96,7 +99,7 @@ conDenfs = [ftn, ftn2, ftn22]
 
 
 
-numIter = 10
+numIter = 50
 eta = 0.01 
 tol = 1e-5
 TrueParas = [beta0, bTheta0]
@@ -126,6 +129,6 @@ for i in range(numIter):
         f"The error of bTheta is {errT.item():.3f}."
     )
 
-f = open(f"./outputs/Bern_{s}_{r}_{p}_{m}_{n}_demo.pkl", "wb")
+f = open(f"./outputs/Bern_{s}_{r}_{p}_{m}_{n}.pkl", "wb")
 pickle.dump(outputs, f)
 f.close()
