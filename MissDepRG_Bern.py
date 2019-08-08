@@ -6,6 +6,7 @@ import pickle
 import timeit
 import time
 from scipy.stats import norm as STN
+from confs import fln, fln2, fln22
 
 torch.manual_seed(0) # cpu
 torch.cuda.manual_seed(0) #gpu
