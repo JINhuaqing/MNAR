@@ -99,7 +99,7 @@ conDenfs = [ftn, ftn2, ftn22]
 
 
 
-numIter = 110
+numIter = 200
 eta = 0.01 
 tol = 1e-5
 TrueParas = [beta0, bTheta0]
@@ -109,9 +109,11 @@ bThetainit = bTheta0 * 1.1
 Cb, CT, CST = 146.479, 9.222, 1.322
 
 outputs = []
+flag = 0
+maxIter = 1000
 outputs.append({"s":s, "r":r, "p":p, "m":m, "n":n, "bTheta0": bTheta0.cpu(), "beta0":beta0.cpu()})
 for i in range(numIter):
-    print(f"Simulation {i+1:>5}/{numIter},")
+    print(f"Simulation {i+1:>5}/{numIter}, {flag}/50,")
     X = genXdis(n, m, p, type="Bern", prob=prob) 
     Y = genYtnorm(X, bTheta0, beta0, a, b, sigma=sigma)
     R = genR(Y, inp=6.5)
@@ -119,7 +121,9 @@ for i in range(numIter):
     Ds2, Dh2 = Dshlowerfnorm(Y, X, beta0, bTheta0, sigma)
     ST = CST*(2*Dh2+2*Ds2**2)
     sXs = genXdis(N, p, type="Bern", prob=prob) 
-    betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1500, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, sps=0.05)
+    betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(maxIter, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, sps=0.05)
+    if numI < maxIter:
+        flag += 1	
     errb = torch.norm(beta0-betahat)
     errT = torch.norm(bTheta0-bThetahat)
     outputs.append((numI, errb.item(), errT.item(), betahat.norm().item(), bThetahat.norm().item()))
@@ -128,6 +132,8 @@ for i in range(numIter):
         f"The error of beta is {errb.item():.3f}, "
         f"The error of bTheta is {errT.item():.3f}."
     )
+    if flag == 50:
+        break
 
 f = open(f"./outputs/Bern_{s}_{r}_{p}_{m}_{n}.pkl", "wb")
 pickle.dump(outputs, f)
