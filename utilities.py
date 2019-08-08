@@ -561,7 +561,7 @@ def genbTheta(n, m, rank=4):
     bTheta = torch.randn(n, m)
     U, S, V = torch.svd(bTheta)
     bTheta = U[:, :rank].matmul(torch.diag(S[:rank])).matmul(V[:, :rank].transpose(1, 0))
-    return bTheta
+    return bTheta 
 
 
 def genbeta(p, sparsity=0.1):
@@ -815,15 +815,13 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
 
         #print(betaNew)
         #paradiff = ParaDiff([betaOld, bThetaOld], [betaNew, bThetaNew])
-        if ErrOpts:
-            Berrs.append((beta0-betaOld).norm().item())        
-            Terrs.append((bTheta0-bThetaOld).norm().item())
         if t >= 1:
             Lk1 = Losses[-1]
             Lk = Losses[-2]
             reCh = np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) 
-            if (reCh < tol):
-                break
+        if ErrOpts:
+            Berrs.append((beta0-betaOld).norm().item())        
+            Terrs.append((bTheta0-bThetaOld).norm().item())
         if log==1:
             tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta"])
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
@@ -834,6 +832,9 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
                 f"{reCh:>8.4g}", f"{alpha1.item():>8.3g}", f"{omeganew.item():>8.3g}",f"{RbNew.item():>8.3g}",
                 f"{tRbNew.item():>8.3g}", f"{RubNew.item():>8.3g}", f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}"])
             print(tb2)
+        if t >= 1:
+            if (reCh < tol):
+                break
         # update the Beta and bTheta
         betaOld, bThetaOld, RbOld = betaNew, bThetaNew, RbNew
     if ErrOpts:
