@@ -10,7 +10,8 @@ __all__  = [
     "missdepLpb", "missdepLpbLoop", "missdepLR", "SoftTO", "MCGD", "Lnormal", 
     "genXdis", "genX", "genR", "genbTheta", "genYnorm", "genbeta", "MCGDnormal", 
     "omegat" , "Rub", "ParaDiff", "LamTfn", "Lambfn", "LpTnormal", "Lpbnormal",
-    "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm", "genYtnorm"
+    "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm", "genYtnorm", 
+    "genYlogit", "Dshlowerflogit"
 ]
 
 
@@ -26,6 +27,20 @@ def H2fnorm(y, m, sigma=0.5):
 def S2fnorm(y, m, sigma):
     return (y-m)/sigma**2
 
+def H2flogit(y, m):
+    return torch.exp(m)/(1+torch.exp(m))**2
+
+def S2flogit(y, m):
+    return torch.exp(m)/(1 + torch.exp(m)) - y
+
+
+def Dshlowerflogit(Y, X, beta, bTheta):
+    m = bTheta + X.matmul(beta)
+    H2v = H2flogit(Y, m)
+    S2v = S2flogit(Y, m)
+    Ds2 = S2v.abs().max().item()
+    Dh2 = H2v.abs().max().item()
+    return Ds2, Dh2
 
 def Dshlowerfnorm(Y, X, beta, bTheta, sigma=0.5):
     m = bTheta + X.matmul(beta)
@@ -504,7 +519,7 @@ def Lambfn(C, n, m):
 
 def LamTfn(C, n, m, p, sp=0.1):
     d = np.sqrt(m*n)
-    rawvs = [np.sqrt(np.log(d)/d), np.sqrt(sp*p*np.log(p))/d, (np.log(p))**(1/4)/np.sqrt(d)]
+    rawvs = [np.sqrt(np.log(d)/d), (np.log(p))**(1/4)/np.sqrt(d)]
     rawv = np.max(rawvs)
     return torch.tensor([C*rawv], dtype=dtorchdtype)
 
@@ -543,7 +558,7 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
 
 
 def genbTheta(n, m, rank=4):
-    bTheta = torch.rand(n, m)
+    bTheta = torch.randn(n, m)
     U, S, V = torch.svd(bTheta)
     bTheta = U[:, :rank].matmul(torch.diag(S[:rank])).matmul(V[:, :rank].transpose(1, 0))
     return bTheta
@@ -577,6 +592,14 @@ def genYtnorm(X, bTheta, beta, a, b, sigma=0.1):
     a = a/sigma
     b = b/sigma
     Yarr = truncnorm.rvs(a, b, loc=Marr, scale=sigma)
+    return torch.tensor(Yarr).to(dtorchdtype)
+
+
+def genYlogit(X, bTheta, beta):
+    M = bTheta + X.matmul(beta)
+    Marr = M.cpu().numpy()
+    probMarr = 1/(1+np.exp(-Marr))
+    Yarr = np.random.binomial(1, probMarr)
     return torch.tensor(Yarr).to(dtorchdtype)
 
 
