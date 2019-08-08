@@ -39,15 +39,15 @@ conDenfs = [fln, fln2, fln22]
 
 Cbpool = np.exp(np.linspace(np.log(1), np.log(1e4), 200))
 CTpool = Cbpool/10
-STpool = np.exp(np.linspace(np.log(50), np.log(1e4), 100))
+STpool = np.exp(np.linspace(np.log(1), np.log(1e4), 100))
 #np.random.shuffle(Cbpool)
 #np.random.shuffle(CTpool)
 #np.random.shuffle(STpool)
 
 numRG = 200
 # eta = 1/(5*0.75*m*p)
-eta = 0.01 
-tol = 1e-5
+eta = 0.001 
+tol = 1e-4
 TrueParas = [beta0, bTheta0]
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
 betainit = beta0* 1.1

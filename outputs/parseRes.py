@@ -3,7 +3,7 @@ from pickle import load
 from prettytable import PrettyTable
 import pickle
 
-with open("./RandGrid_Bern_2w_01_001_errs_init11_tn_r5s5.pkl", "rb") as f:
+with open("./RandGrid_Bern_lg_2w_01_r5s5_11_100.pkl", "rb") as f:
     dataall = load(f)
 
 data, errss = dataall[0], dataall[1]
@@ -46,6 +46,7 @@ Tres = formatstr.format("minT", *list(Tres)).split(",")[:-1]
 # remove the results which reach the maxmal iteration number 
 kpidx2 = rmddata[:, 0] != 1000
 rmddata2 = rmddata[kpidx2]
+#print(np.round(rmddata2, 3)[:, [0, 2, 5]])
 rmderrss2 = rmderrss[kpidx2]
 minidx2 = np.argmin(rmddata2, axis=0)
 betaidx2, bThetaidx2 = minidx2[2], minidx2[-3]
