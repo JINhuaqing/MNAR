@@ -5,11 +5,11 @@
 
 ### The output name rules
 
-(SearchName)_(Xdistribution)_(Ydistribution)_(MCMCNum)_(ParameterOfX)_(rankAndSparisty)_(initialValue).pkl
+(SearchName)_(Xdistribution)_(Ydistribution)_(MCMCNum)_(ParameterOfX)_(rankAndSparisty)_(initialValue)_(mn).pkl
 
 **e.g:**
 
-- RandGrid_Bern_TN_5w_01_r4s5_11.pkl
+- RandGrid_Bern_TN_5w_01_r4s5_11_50.pkl
 
 ### Bernulli
 
