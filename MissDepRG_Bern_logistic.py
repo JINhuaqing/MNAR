@@ -21,7 +21,7 @@ if cuda:
 n = 100
 m = 100
 p = 100
-N = 20000
+N = 50000
 
 prob = 1000/n/m
 X = genXdis(n, m, p, type="Bern", prob=prob) 
@@ -44,14 +44,14 @@ STpool = np.exp(np.linspace(np.log(1), np.log(1e4), 100))
 #np.random.shuffle(CTpool)
 #np.random.shuffle(STpool)
 
-numRG = 200
+numRG = 100
 # eta = 1/(5*0.75*m*p)
-eta = 0.0005 
-tol = 1e-4
+eta = 0.01 
+tol = 1e-5
 TrueParas = [beta0, bTheta0]
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
-betainit = beta0* 1.1
-bThetainit = bTheta0 * 1.1
+betainit = beta0* 0.9
+bThetainit = bTheta0 * 0.9
 
 print(results)
 Errs = []
@@ -61,10 +61,9 @@ for i in range(numRG):
     while Cb < CT:
         idx1, idx2, idx3 = np.random.randint(0, len1), np.random.randint(0, len2), np.random.randint(0, len3)
         Cb, CT, ST = Cbpool[idx1], CTpool[idx2], STpool[idx3]*STbd
-    Cb, CT, ST = 1517, 0.152, 1.451*STbd
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
     try:
-        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, Rbinit=torch.tensor([0.5]), ErrOpts=1, sps=0.05)
+        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, Rbinit=torch.tensor([1.0]), ErrOpts=1)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100, ST/STbd))
         Errs.append([])
@@ -85,6 +84,6 @@ for i in range(numRG):
             f"The error of bTheta is {errT.item():.3f}."
         )
 
-f = open("./outputs/RandGrid_Bern_lg_2w_01_r5s5_11_100_tol4_eta4.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_lg_5w_01_r5s5_09_100_tol5_eta2.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()

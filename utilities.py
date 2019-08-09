@@ -517,7 +517,7 @@ def Lambfn(C, n, m):
     rawv = np.sqrt(np.log(m+n))/m/n
     return torch.tensor([C*rawv], dtype=dtorchdtype)
 
-def LamTfn(C, n, m, p, sp=0.1):
+def LamTfn(C, n, m, p):
     d = np.sqrt(m*n)
     rawvs = [np.sqrt(np.log(d)/d), (np.log(p))**(1/4)/np.sqrt(d)]
     rawv = np.max(rawvs)
@@ -752,7 +752,7 @@ def MCGD(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, 
     return betaOld, bThetaOld, RbOld, t+1
 
 
-def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0, betainit=None, bThetainit=None, Rbinit=None, tol=1e-4, ST=10000, prob=0.5, ErrOpts=0, sps=0.05):
+def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0, betainit=None, bThetainit=None, Rbinit=None, tol=1e-4, ST=10000, prob=0.5, ErrOpts=0):
     n, m, p = X.shape
     f, f2, _ = conDenfs
     Berrs = []
@@ -765,7 +765,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     reCh = 1
 
     Lamb = Lambfn(Cb, n, m)
-    LamT = LamTfn(CT, n, m, p, sps)
+    LamT = LamTfn(CT, n, m, p)
     if log>=1:
         tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "eta"])
         tb1.add_row(["", f"{Lamb.item():>5.3g}", f"{LamT.item():>5.3g}", f"{eta:>5.3g}"])
