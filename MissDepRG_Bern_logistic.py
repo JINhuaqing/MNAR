@@ -46,7 +46,7 @@ STpool = np.exp(np.linspace(np.log(1), np.log(1e4), 100))
 
 numRG = 200
 # eta = 1/(5*0.75*m*p)
-eta = 0.001 
+eta = 0.0001 
 tol = 1e-4
 TrueParas = [beta0, bTheta0]
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
@@ -84,6 +84,6 @@ for i in range(numRG):
             f"The error of bTheta is {errT.item():.3f}."
         )
 
-f = open("./outputs/RandGrid_Bern_lg_2w_01_r5s5_11_100.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_lg_2w_01_r5s5_11_100_tol4_eta4.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()
