@@ -56,7 +56,7 @@ conDenfs = [fln, fln2, fln22]
 #------------------------------------------------------------------------------------
 # I use random grid search to find good parameters, so the following are the search spaces 
 Cbpool = np.exp(np.linspace(np.log(1), np.log(1e4), 200))
-CTpool = Cbpool/10
+CTpool = np.exp(np.linspace(np.log(1e-6), np.log(1e-3), 100))
 # ST,  sigma_bTheta, 
 STpool = np.exp(np.linspace(np.log(1), np.log(1e4), 100))
 #np.random.shuffle(Cbpool)
@@ -75,8 +75,9 @@ TrueParas = [beta0, bTheta0]
 # The list to contain output results
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
 # initial value of beta and bTheta
-betainit = beta0* 1.1
-bThetainit = bTheta0 * 1.1
+betainit = beta0* 0.95
+bThetainit = bTheta0 * 0.95
+Lcon = 8
 
 #------------------------------------------------------------------------------------
 print(results)
@@ -99,7 +100,7 @@ for i in range(numRG):
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, Rbinit=torch.tensor([1.0]), ErrOpts=1)
+        betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=0, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, Rbinit=torch.tensor([1.0]), ErrOpts=1, Lcon=8)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100, ST/STbd))
         Errs.append([])
@@ -121,6 +122,6 @@ for i in range(numRG):
         )
 
 # Save the output
-f = open("./outputs/RandGrid_Bern_lg_5w_01_r5s5_11_100_tol5_eta2.pkl", "wb")
+f = open("./outputs/RandGrid_Bern_lg_2w_01_r5s5_095_100_tol5_eta2.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()

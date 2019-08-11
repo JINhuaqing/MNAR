@@ -659,12 +659,8 @@ def omegat(bT, tbTt, R, LamT, LpTv, Rb, tRb, ST):
 
 # To compute R^t_{UB} in optimization algorithm
 # i.e. F/Lambda_bTheta
-def Rub(Lv, beta, Rb, LamT, Lamb):
-    L = 50 
-    if (Lv + L) > 0:
-        Fv = Lv + Lamb * beta.abs().sum() + LamT * Rb + L
-    else:
-        Fv = Lamb * beta.abs().sum() + LamT * Rb 
+def Rub(Lv, beta, Rb, LamT, Lamb, Lcon=10):
+    Fv = Lv + Lamb * beta.abs().sum() + LamT * Rb + Lcon
     return Fv/LamT
 
 
@@ -723,11 +719,10 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
 
 # To generate bTheta_0, (Grand-truth of bTheta)
 def genbTheta(n, m, rank=4):
-    bTheta = torch.rand(n, m) 
+    bTheta = torch.rand(n, m) * 7
     #bTheta = torch.randn(n, m)
     U, S, V = torch.svd(bTheta)
-    Smin = torch.rand(rank) + 1
-    bTheta = U[:, :rank].matmul(torch.diag(Smin)).matmul(V[:, :rank].transpose(1, 0))
+    bTheta = U[:, :rank].matmul(torch.diag(S[:rank])).matmul(V[:, :rank].transpose(1, 0))
     return bTheta 
 
 # To generate beta_0, (Grand-truth of beta), never used
@@ -968,7 +963,7 @@ def MCGDnormal(MaxIters, X, Y, R, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0,
 
 
 # the MCGD algorithm function when X is Bernoulli
-def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0, betainit=None, bThetainit=None, Rbinit=None, tol=1e-4, ST=10000, prob=0.5, ErrOpts=0):
+def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.01, log=0, betainit=None, bThetainit=None, Rbinit=None, tol=1e-4, ST=10000, prob=0.5, ErrOpts=0, Lcon=10):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -992,6 +987,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     ST: sigma_bTheta, the constant in omegat function
     prob: sucessful probability of entry of X
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
+    Lcon: The constant used in Rub function
     """
     n, m, p = X.shape
     f, f2, _ = conDenfs
@@ -1058,7 +1054,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         #--------------------------------------------------------------------------------
         # Update bTheta and R_b
 
-        RubNew = Rub(LvOld, betaNew, RbOld, LamT, Lamb)
+        RubNew = Rub(LvOld, betaNew, RbOld, LamT, Lamb, Lcon)
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0New > numExact:
             LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, sXs)
@@ -1099,10 +1095,10 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta", "reCh", "Alpha", "Omegat", "Rb", "tildeRb", "Rub", "Norm of Betat", "Norm of Thetat"])
+            tb2 = PrettyTable(["Iteration", "Loss", "Error of Beta", "Error of Theta", "reCh", "Alpha", "Omegat", "Rb", "tildeRb", "Rub", "F value", "Norm of Betat", "Norm of Thetat"])
             tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}", f"{alpha1.item():>8.3g}", f"{omeganew.item():>8.3g}",f"{RbNew.item():>8.3g}",
-                f"{tRbNew.item():>8.3g}", f"{RubNew.item():>8.3g}", f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}"])
+                f"{tRbNew.item():>8.3g}", f"{RubNew.item():>8.3g}", f"{(RubNew*LamT).item():>8.3g}",f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}"])
             print(tb2)
         #--------------------------------------------------------------------------------
         # Then reCh is smaller than tolerance, stop the loop

@@ -38,16 +38,16 @@ sXs = genXdis(N, p, type="Bern", prob=prob)
 conDenfs = [fln, fln2, fln22]
 
 
-numRG = 100
-eta = 0.01 
-tol = 1e-5
+eta = 0.1 
+tol = 1e-6
 TrueParas = [beta0, bTheta0]
-betainit = beta0* 0.9
-bThetainit = bTheta0 * 0.9
+betainit = beta0* 0.95
+bThetainit = bTheta0 * 0.95
+Lcon= 8
 
-Cb, CT, ST = 100, 0.1, 190
+Cb, CT, ST = 1, 1e-4, 10
 print(f"Cb is {Cb:>8.4g}, CT is {CT:>8.4g}, ST is {ST:>8.4g}")
-betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, Rbinit=torch.tensor([1.0]), ErrOpts=1)
+betahat, bThetahat, _, numI, Berrs, Terrs = MCGDBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, eta=eta, Cb=Cb, CT=CT, tol=tol, log=2, ST=ST, prob=prob, betainit=betainit, bThetainit=bThetainit, Rbinit=torch.tensor([1.0]), ErrOpts=1, Lcon=Lcon)
 errb = torch.norm(beta0-betahat)
 errT = torch.norm(bTheta0-bThetahat)
 print(
