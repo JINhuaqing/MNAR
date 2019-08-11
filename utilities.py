@@ -995,44 +995,71 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     """
     n, m, p = X.shape
     f, f2, _ = conDenfs
+    # To contain the training errors of beta and bTheta, respectively.
     Berrs = []
     Terrs = []
+
+    # When l0 norm of betahat is smaller or equal to numExact, I will use exact integration 
+    # Otherwise, the integration will be computed by MCMC with 20,000 samples.
     numExact = 12
+    # The true parameters
     beta0, bTheta0 = TrueParas
+    # Initial the value of beta, bTheta and R_b
     betaOld = torch.rand(p) if betainit is None else betainit
     RbOld = torch.rand(1) if Rbinit is None else Rbinit
     bThetaOld = torch.rand(n, m) if bThetainit is None else bThetainit
+    # the relative change of Loss, i.e. |L_k - L_k+1|/max(|L_k|, |L_k+1|, 1), here the L_k and L_k+1 are with penalty items.
     reCh = 1
 
+    # Under Cb and CT, compute the Lambda_beta and Lambda_bTheta
     Lamb = Lambfn(Cb, n, m)
     LamT = LamTfn(CT, n, m, p)
+
+    # The log output, nothing to do with algorithm.
     if log>=1:
         tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "eta"])
         tb1.add_row(["", f"{Lamb.item():>5.3g}", f"{LamT.item():>5.3g}", f"{eta:>5.3g}"])
         print(tb1)
+    # The loss, i.e. L + Lambda_beta *||beta|| + Lamdab_bTheta * ||bTheta||
     Losses = []
 
+    # Starting optimizing.
     for t in range(MaxIters):
-        # update beta
+        #--------------------------------------------------------------------------------
+        # This block is to update beta.
+
+        # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
+        # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
             betaNewRaw = betaOld - eta * missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
         else:
             betaNewRaw = betaOld - eta * LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
+        # Using rho function to soften updated beta
         betaNew = SoftTO(betaNewRaw, eta*Lamb)
-        NumN0New = p - (betaNew.abs()==0).sum().to(dtorchdtype)
-        #print(NumN0New, NumN0Old)
-        #print((betaNew.abs()==0 ).sum().to(dtorchdtype)/p, betaNew.abs().min())
 
-        # compute the loss function
+        #--------------------------------------------------------------------------------
+        # To get the number of nonzeros entry in betaOld
+        NumN0New = p - (betaNew.abs()==0).sum().to(dtorchdtype)
+
+        #--------------------------------------------------------------------------------
+        # compute the loss function (with penalty items)
+
+        # Compute L (without penalty items) 
+        # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0New > numExact:
             LvOld = missdepL(bThetaOld, betaNew, f, X, Y, R, sXs)
         else:
             LvOld = LBern(bThetaOld, betaNew, f, X, Y, R, prob)
+        # Add L with penalty items.
         LossOld = missdepLR(LvOld, bThetaOld, betaOld, LamT, Lamb)
         Losses.append(LossOld.item())
 
+        #--------------------------------------------------------------------------------
+        # Update bTheta and R_b
+
         RubNew = Rub(LvOld, betaNew, RbOld, LamT, Lamb)
+        # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0New > numExact:
             LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, sXs)
         else:
@@ -1052,13 +1079,18 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         # Update bTheta and Rb
         bThetaNew = bThetaOld + omeganew * (tbTNew-bThetaOld)
         RbNew = RbOld + omeganew * (tRbNew-RbOld)
+        #--------------------------------------------------------------------------------
 
-        #print(betaNew)
-        paradiff = ParaDiff([betaOld, bThetaOld], [betaNew, bThetaNew])
+         
+        # paradiff = ParaDiff([betaOld, bThetaOld], [betaNew, bThetaNew])
+        # compute the relative change of Loss
         if t >= 1:
             Lk1 = Losses[-1]
             Lk = Losses[-2]
             reCh = np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) 
+
+        #--------------------------------------------------------------------------------
+        # This block is for log output and Error save, nothing to do with the algorithm
         if ErrOpts:
             Berrs.append((beta0-betaOld).norm().item())        
             Terrs.append((bTheta0-bThetaOld).norm().item())
@@ -1072,14 +1104,19 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
                 f"{reCh:>8.4g}", f"{alpha1.item():>8.3g}", f"{omeganew.item():>8.3g}",f"{RbNew.item():>8.3g}",
                 f"{tRbNew.item():>8.3g}", f"{RubNew.item():>8.3g}", f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}"])
             print(tb2)
+        #--------------------------------------------------------------------------------
+        # Then reCh is smaller than tolerance, stop the loop
         if t >= 1:
             if (reCh < tol):
                 break
         #if t >= 1:
         #    if (paradiff < tol) or (np.abs(Losses[-1]-Losses[-2]) < tol):
         #        break
-        # update the Beta and bTheta
+
+        #--------------------------------------------------------------------------------
+        # Change New to Old for starting next iteration
         betaOld, bThetaOld, RbOld = betaNew, bThetaNew, RbNew
+   #--------------------------------------------------------------------------------
     if ErrOpts:
         return betaOld, bThetaOld, RbOld, t+1, Berrs, Terrs
     else:
