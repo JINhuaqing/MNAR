@@ -110,15 +110,17 @@ def ftn22(y, m, bsXs=None, sigma=sigma, a=a, b=b):
     return tv
 
 
-n = 50
-m = 50
+n = 100
+m = 100
 p = 100
 N = 10000
 sigmax = np.sqrt(1/3)
 
 X = genXdis(n, m, p, type="bern", prob=0.1) 
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
-bTheta0 = genbTheta(n, m) * 7
+bTheta0 = genbTheta(n, m) 
+res = torch.svd(bTheta0)
+print(bTheta0)
 M = bTheta0 + X.matmul(beta0)
 Y = genYlogit(X, bTheta0, beta0)
 sXs = genXdis(N, p, type="Bern", prob=0.1) 

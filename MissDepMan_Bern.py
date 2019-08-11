@@ -18,7 +18,7 @@ cuda = torch.cuda.is_available()
 if cuda:
     torch.set_default_tensor_type(torch.cuda.FloatTensor)
 sigma = 0.5
-a, b = -100, 100
+a, b = -10, 10
 
 def torchstnpdf(y):
     pi = torch.tensor([np.pi])
@@ -100,12 +100,12 @@ STpool = np.exp(np.linspace(np.log(1), np.log(1e2), 100))
 
 numRG = 100
 eta = 0.01 
-tol = 1e-4
+tol = 1e-5
 TrueParas = [beta0, bTheta0]
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "eta":eta, "tol": tol}]
-betainit = beta0* 1.1
-bThetainit = bTheta0 * 1.1
-Cb, CT, ST = 232, 0.016, 1.1*STbd
+betainit = beta0#* 0.99
+bThetainit = bTheta0 #* 0.19
+Cb, CT, ST = 146.479, 9.222, 1.322*STbd
 
 print(results)
 Errs = []
@@ -116,12 +116,12 @@ errT = torch.norm(bTheta0-bThetahat)
 results.append((numI, Cb, errb.item(), betahat.norm().item(), CT, errT.item(), bThetahat.norm().item(), ST))
 Errs.append([Berrs, Terrs])
 print(
-    f"The {i+1}th/{numRG},"
     f"The Iteration number is {numI}, "
     f"The error of beta is {errb.item():.3f}, "
     f"The error of bTheta is {errT.item():.3f}."
 )
 
+fasd
 f = open("./outputs/Manmul_Bern_2w_01_001_errs_init11_tn.pkl", "wb")
 pickle.dump([results, Errs], f)
 f.close()
