@@ -775,7 +775,7 @@ def genR(Y, type="Linear", inp=6.5):
         ranUnif = torch.rand_like(probs)
         R = probs >= ranUnif
     else:
-        raise TypeError("Wrong type of independence!")
+        raise TypeError("Wrong dependence type!")
     return R.to(dtorchdtype)
 
 
@@ -1022,10 +1022,23 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     # Starting optimizing.
     for t in range(MaxIters):
         #--------------------------------------------------------------------------------
-        # This block is to update beta.
-
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
+        #--------------------------------------------------------------------------------
+        # compute the loss function (with penalty items) under betaOld and bThetaOld
+
+        # Compute L (without penalty items) 
+        # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
+        if NumN0Old > numExact:
+            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, sXs)
+        else:
+            LvNow = LBern(bThetaOld, betaOld, f, X, Y, R, prob)
+        # Add L with penalty items.
+        LossNow = missdepLR(LvNow, bThetaOld, betaOld, LamT, Lamb)
+        Losses.append(LossNow.item())
+
+        #--------------------------------------------------------------------------------
+        # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
             betaNewRaw = betaOld - eta * missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
@@ -1039,18 +1052,12 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         NumN0New = p - (betaNew.abs()==0).sum().to(dtorchdtype)
 
         #--------------------------------------------------------------------------------
-        # compute the loss function (with penalty items)
-
-        # Compute L (without penalty items) 
+        # Compute L (without penalty items) under betaNew and bThetaOld
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0New > numExact:
             LvOld = missdepL(bThetaOld, betaNew, f, X, Y, R, sXs)
         else:
             LvOld = LBern(bThetaOld, betaNew, f, X, Y, R, prob)
-        # Add L with penalty items.
-        LossOld = missdepLR(LvOld, bThetaOld, betaOld, LamT, Lamb)
-        Losses.append(LossOld.item())
-
         #--------------------------------------------------------------------------------
         # Update bTheta and R_b
 
@@ -1075,9 +1082,8 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         # Update bTheta and Rb
         bThetaNew = bThetaOld + omeganew * (tbTNew-bThetaOld)
         RbNew = RbOld + omeganew * (tRbNew-RbOld)
-        #--------------------------------------------------------------------------------
 
-         
+        #--------------------------------------------------------------------------------
         # paradiff = ParaDiff([betaOld, bThetaOld], [betaNew, bThetaNew])
         # compute the relative change of Loss
         if t >= 1:
