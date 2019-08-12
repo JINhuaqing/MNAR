@@ -722,7 +722,8 @@ def genbTheta(n, m, rank=4):
     bTheta = torch.rand(n, m) * 7
     #bTheta = torch.randn(n, m)
     U, S, V = torch.svd(bTheta)
-    bTheta = U[:, :rank].matmul(torch.diag(S[:rank])).matmul(V[:, :rank].transpose(1, 0))
+    idx = torch.randperm(S.shape[0])[:rank]
+    bTheta = U[:, idx].matmul(torch.diag(S[idx])).matmul(V[:, idx].transpose(1, 0))
     return bTheta 
 
 # To generate beta_0, (Grand-truth of beta), never used
