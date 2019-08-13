@@ -53,7 +53,10 @@ def fln2(y, m , bsXs=None):
 
 
 def fln22(y, m, bsXs=None):
-    pass
+    if bsXs is not None:
+        return (2*y-1).unsqueeze(-1)*torch.exp((m.unsqueeze(-1) + bsXs))*(1-torch.exp(2*(m.unsqueeze(-1) + bsXs)))/(1+torch.exp((m.unsqueeze(-1) + bsXs)))**4
+    else:
+        return (2*y-1)*torch.exp(m)*(1-torch.exp(2*m))/(1+torch.exp(m))**4
 
 
 def ftn2(y, m, bsXs=None, sigma=sigma, a=a, b=b):

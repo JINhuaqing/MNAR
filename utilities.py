@@ -13,7 +13,7 @@ __all__  = [
     "genXdis", "genX", "genR", "genbTheta", "genYnorm", "genbeta", "MCGDnormal", 
     "omegat" , "Rub", "ParaDiff", "LamTfn", "Lambfn", "LpTnormal", "Lpbnormal",
     "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm", "genYtnorm", 
-    "genYlogit", "Dshlowerflogit"
+    "genYlogit", "Dshlowerflogit", "missdepLpTT", "LpTTBern"
 ]
 
 #----------------------------------------------------------------------------------------------------------------
@@ -289,7 +289,97 @@ def LpTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
 
 
 #----------------------------------------------------------------------------------------------------------------
+# Compute the value of second derivative of L w.r.t vec(bTheta) with MCMC method for any distributions X.
+def missdepLpTT(bTheta, beta, conDenfs, X, Y, R, sXs):
+    """
+    Input:
+    bTheta: the matrix parameter, n x m
+    beta: the vector parameter, p 
+    conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
+             [f, f2, f22]. 
+    X: the covariate matrix, n x m x p
+    Y: the response matrix, n x m
+    R: the Missing matrix, n x m
+    sXs: p x N, samples of X_ij to compute the MCMC integration
+    Output:
+    itm: n x m
+    """
+    n, m, p = X.shape
+    _, N = sXs.shape
+    f, f2, f22 = conDenfs
 
+    # remove the elements whose corresponding betaK is zero
+    idxNon0 = torch.nonzero(beta).view(-1)
+    if idxNon0.shape[0] == 0:
+        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+    beta = beta[idxNon0]
+    sXs = sXs[idxNon0]
+    X = X[:, :, idxNon0]
+
+    betaX = torch.matmul(X, beta)
+    TbX = bTheta + betaX
+
+    itm1 = (f22(Y, TbX)/(f(Y, TbX)+seps))
+    itm2 = (f2(Y, TbX)**2/(f(Y, TbX)**2+seps))
+
+    bsXs = beta.matmul(sXs)
+    
+    itm3den = f(Y, bTheta, bsXs).mean(dim=-1) + seps
+    itm3num = f22(Y, bTheta, bsXs).mean(dim=-1)
+    itm3 = itm3num/itm3den
+
+    itm4den = (f(Y, bTheta, bsXs).mean(dim=-1))**2 + seps
+    itm4num = f2(Y, bTheta, bsXs).mean(dim=-1)**2
+    itm4 = itm4num/itm4den
+
+    itm = R * (itm1 - itm2- itm3 + itm4)/(m*n)
+    return -itm
+
+
+# compute the exact value of second derivative of L w.r.t vec(bTheta) when X is Bernoulli.
+def LpTTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
+    """
+    Inputs:
+    bTheta: the matrix parameter, n x m
+    beta: the vector parameter, p 
+    conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
+             [f, f2, f22].
+    X: the covariate matrix, n x m x p
+    Y: the response matrix, n x m
+    R: the Missing matrix, n x m
+    prob: the successful probability of each entry of X
+
+    Output:
+    itm: n x m
+    """
+    n, m, p = X.shape
+    f, f2, f22 = conDenfs
+
+    itm3den = intBernh(f, bTheta, beta, Y, prob) + seps
+    itm3num = intBernh(f22, bTheta, beta, Y, prob)
+    itm3 = itm3num/itm3den
+
+    itm4den = intBernh(f, bTheta, beta, Y, prob)**2 + seps
+    itm4num = intBernh(f2, bTheta, beta, Y, prob)**2
+    itm4 = itm4num/itm4den
+
+    # remove the elements whose corresponding betaK is zero
+    idxNon0 = torch.nonzero(beta).view(-1)
+    if idxNon0.shape[0] == 0:
+        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+    beta = beta[idxNon0]
+    X = X[:, :, idxNon0]
+
+    betaX = torch.matmul(X, beta)
+    TbX = bTheta + betaX
+
+    itm1 = (f22(Y, TbX)/(f(Y, TbX)+seps))
+    itm2 = (f2(Y, TbX)**2/(f(Y, TbX)**2+seps))
+    
+    itm = R * (itm1 - itm2 - itm3 + itm4)/(m*n)
+    return -itm
+
+#----------------------------------------------------------------------------------------------------------------
 # Compute the value of first derivative of L w.r.t beta with MCMC method for any distributions X.
 def missdepLpb(bTheta, beta, conDenfs, X, Y, R, sXs):
     """
@@ -982,9 +1072,6 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
     bThetainit: initial value of bTheta
     Rbinit: initial of R_b
     tol: terminate tolerace.
-    missdepL:  function to compute the value of L   
-    missdepLpb:  function to compute the value of derivative of L w.r.t beta 
-    missdepLpT:  function to compute the value of derivative of L w.r.t bTheta 
     ST: sigma_bTheta, the constant in omegat function
     prob: sucessful probability of entry of X
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
@@ -1124,3 +1211,28 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
         return betaOld, bThetaOld, RbOld, t+1, Berrs, Terrs
     else:
         return betaOld, bThetaOld, RbOld, t+1
+
+
+#----------------------------------------------------------------------------------------------------------------
+
+# New algorithm in (Fan, Gong & Zhu, 2019) to optimize the bTheta when X is Bernoulli which uses second derivatives of L
+def FGZBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, log=0, betainit=None, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0):
+    """
+    MaxIters: max iteration number.
+    X: the covariate matrix, n x m x p
+    Y: the response matrix, n x m
+    R: the Missing matrix, n x m
+    sXs: p x N, samples of X_ij to compute the MCMC integration
+    conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
+             [f, f2, f22]. In fact, f22 is not used.
+    Trueparas: True paramter of beta and bTheta, a list like [beta0, bTheta0]
+    eta: the learning rate when updating beta
+    Cb: the constant of Lambda_beta
+    log: Whether output detail training log. 0 not output, 1 output simple training log, 2 output detailed training log.
+    betainit: initial value of beta
+    bThetainit: initial value of bTheta
+    tol: terminate tolerace.
+    prob: sucessful probability of entry of X
+    ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
+    """
+    pass
