@@ -13,7 +13,7 @@ __all__  = [
     "genXdis", "genX", "genR", "genbTheta", "genYnorm", "genbeta", "MCGDnormal", 
     "omegat" , "Rub", "ParaDiff", "LamTfn", "Lambfn", "LpTnormal", "Lpbnormal",
     "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm", "genYtnorm", 
-    "genYlogit", "Dshlowerflogit", "missdepLpTT", "LpTTBern"
+    "genYlogit", "Dshlowerflogit", "missdepLpTT", "LpTTBern", "BthetaBern"
 ]
 
 #----------------------------------------------------------------------------------------------------------------
@@ -1216,23 +1216,97 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
 #----------------------------------------------------------------------------------------------------------------
 
 # New algorithm in (Fan, Gong & Zhu, 2019) to optimize the bTheta when X is Bernoulli which uses second derivatives of L
-def FGZBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, log=0, betainit=None, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0):
+def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
     Y: the response matrix, n x m
     R: the Missing matrix, n x m
-    sXs: p x N, samples of X_ij to compute the MCMC integration
     conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
              [f, f2, f22]. In fact, f22 is not used.
     Trueparas: True paramter of beta and bTheta, a list like [beta0, bTheta0]
-    eta: the learning rate when updating beta
-    Cb: the constant of Lambda_beta
+    CT: the constant of Lambda_bTheta
     log: Whether output detail training log. 0 not output, 1 output simple training log, 2 output detailed training log.
-    betainit: initial value of beta
     bThetainit: initial value of bTheta
     tol: terminate tolerace.
     prob: sucessful probability of entry of X
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
     """
-    pass
+    n, m, p = X.shape
+    f, f2, f22 = conDenfs
+    # To contain the training errors of bTheta, respectively.
+    Terrs = []
+
+    # The true parameters
+    beta0, bTheta0 = TrueParas
+    # Initial the value of beta, bTheta and R_b
+    bThetaOld = torch.rand(n, m) if bThetainit is None else bThetainit
+    # the relative change of Loss, i.e. |L_k - L_k+1|/max(|L_k|, |L_k+1|, 1), here the L_k and L_k+1 are with penalty items.
+    reCh = 1
+
+    # Under Cb and CT, compute the Lambda_beta and Lambda_bTheta
+    LamT = LamTfn(CT, n, m, p)
+
+    LpTTv0 = LpTTBern(bTheta0, beta0, conDenfs, X, Y, R, prob) # n x m
+    etaT = LpTTv0.abs().max().item()
+    # The log output, nothing to do with algorithm.
+    if log>=1:
+        tb1 = PrettyTable(["Basic Value", "LamT", "etaT", "LamT/etaT", "norm of bTheta0"])
+        tb1.add_row(["",  f"{LamT.item():>5.3g}", f"{etaT:>5.3g}", f"{LamT.norm()/etaT:>5.3g}", f"{bTheta0.norm().item():>5.3g}"])
+        print(tb1)
+    # The loss, i.e. L + Lambda_beta *||beta|| + Lamdab_bTheta * ||bTheta||
+    Losses = []
+
+    # Starting optimizing.
+    for t in range(MaxIters):
+        #--------------------------------------------------------------------------------
+        LvNow = LBern(bThetaOld, beta0,  f, X, Y, R, prob)
+        # Add L with penalty items.
+        LossNow = missdepLR(LvNow, bThetaOld, beta0, LamT, 0)
+        Losses.append(LossNow.item())
+
+        #--------------------------------------------------------------------------------
+        # Update bTheta 
+        LpTvOld = LpTBern(bThetaOld, beta0, conDenfs, X, Y, R, prob)
+        svdres = torch.svd(bThetaOld-LpTvOld/etaT)
+        U, S, V =  svdres.U, svdres.S, svdres.V
+        softS = (S-LamT/etaT).clamp_min(0)
+        bThetaNew = U.matmul(torch.diag(softS)).matmul(V.t())
+
+        #--------------------------------------------------------------------------------
+        # compute the relative change of Loss
+        if t >= 1:
+            Lk1 = Losses[-1]
+            Lk = Losses[-2]
+            reCh = np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) 
+
+        #--------------------------------------------------------------------------------
+        # This block is for log output and Error save, nothing to do with the algorithm
+        if ErrOpts:
+            Terrs.append((bTheta0-bThetaOld).norm().item())
+        if log==1:
+            tb2 = PrettyTable(["Iteration", "Loss", "Error of Theta"])
+            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
+            print(tb2)
+        if log==2:
+            tb2 = PrettyTable(["Iteration", "Loss",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{Losses[-1]:>8.3f}",  f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+                f"{reCh:>8.4g}",  f"{bThetaNew.norm().item():>8.3f}", f"{(bThetaOld-bThetaNew).norm().item():>8.3f}"])
+            print(tb2)
+        #--------------------------------------------------------------------------------
+        # if reCh is smaller than tolerance, stop the loop
+        if t >= 1:
+            if (reCh < tol):
+                break
+        # if the difference of 2 consecutive bThetahat is smaller than tolerance, stop the loop
+        if (bThetaOld-bThetaNew).norm() < tol:
+            break
+        #--------------------------------------------------------------------------------
+        # Change New to Old for starting next iteration
+        bThetaOld = bThetaNew 
+   #--------------------------------------------------------------------------------
+    if ErrOpts:
+        return bThetaOld, t+1, Terrs
+    else:
+        return bThetaOld, t+1
+
