@@ -1251,7 +1251,7 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     # the spectral norm of a diag matrix is mat.abs().max()
     etaT = LpTTv0.abs().max().item()
     # The log output, nothing to do with algorithm.
-    if log>=1:
+    if log>=0:
         tb1 = PrettyTable(["Basic Value", "LamT", "etaT", "LamT/etaT", "norm of bTheta0"])
         tb1.add_row(["",  f"{LamT.item():>5.3g}", f"{etaT:>5.3g}", f"{LamT.norm()/etaT:>5.3g}", f"{bTheta0.norm().item():>5.3g}"])
         print(tb1)
