@@ -809,8 +809,8 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
 
 # To generate bTheta_0, (Grand-truth of bTheta)
 def genbTheta(n, m, rank=4):
-    bTheta = torch.rand(n, m) * 7
-    #bTheta = torch.randn(n, m)
+    #bTheta = torch.rand(n, m) * 7
+    bTheta = torch.randn(n, m) * 7
     U, S, V = torch.svd(bTheta)
     idx = torch.randperm(S.shape[0])[:rank]
     bTheta = U[:, idx].matmul(torch.diag(torch.ones(rank)*16)).matmul(V[:, idx].transpose(1, 0))
@@ -1216,7 +1216,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
 #----------------------------------------------------------------------------------------------------------------
 
 # New algorithm in (Fan, Gong & Zhu, 2019) to optimize the bTheta when X is Bernoulli which uses second derivatives of L
-def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0):
+def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etaTs=None, etaTsc=None):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -1247,9 +1247,14 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     # Under Cb and CT, compute the Lambda_beta and Lambda_bTheta
     LamT = LamTfn(CT, n, m, p)
 
-    LpTTv0 = LpTTBern(bTheta0, beta0, conDenfs, X, Y, R, prob) # n x m
-    # the spectral norm of a diag matrix is mat.abs().max()
-    etaT = LpTTv0.abs().max().item()
+    if etaTs is None:
+        LpTTv0 = LpTTBern(bTheta0, beta0, conDenfs, X, Y, R, prob) # n x m
+        # the spectral norm of a diag matrix is mat.abs().max()
+        etaT = LpTTv0.abs().max().item()
+    else:
+        etaTs = sorted(etaTs, reverse=1)
+        etaTsc = sorted(etaTsc, reverse=1)
+        etaT = etaTs.pop()
     # The log output, nothing to do with algorithm.
     if log>=0:
         tb1 = PrettyTable(["Basic Value", "LamT", "etaT", "LamT/etaT", "norm of bTheta0"])
@@ -1260,6 +1265,11 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
 
     # Starting optimizing.
     for t in range(MaxIters):
+        if (etaTsc is not None) and (len(etaTsc) > 0):
+            if t >= etaTsc[-1]:
+                if len(etaTs) > 0:
+                    etaT = etaTs.pop()
+                etaTsc.pop()
         #--------------------------------------------------------------------------------
         LvNow = LBern(bThetaOld, beta0,  f, X, Y, R, prob)
         # Add L with penalty items.
@@ -1286,12 +1296,12 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         if ErrOpts:
             Terrs.append((bTheta0-bThetaOld).norm().item())
         if log==1:
-            tb2 = PrettyTable(["Iteration", "Loss", "Error of Theta"])
-            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{Losses[-1]:>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
+            tb2 = PrettyTable(["Iteration", "etaT", "Loss", "Error of Theta"])
+            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "Loss",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{Losses[-1]:>8.3f}",  f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            tb2 = PrettyTable(["Iteration", "etaT", "Loss",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}",  f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}",  f"{bThetaNew.norm().item():>8.3f}", f"{(bThetaOld-bThetaNew).norm().item():>8.3f}"])
             print(tb2)
         #--------------------------------------------------------------------------------
