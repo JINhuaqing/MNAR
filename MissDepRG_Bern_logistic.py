@@ -99,7 +99,7 @@ for i in range(numRG):
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}")
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tol=tol, log=2, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tol=tol, log=0, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])
