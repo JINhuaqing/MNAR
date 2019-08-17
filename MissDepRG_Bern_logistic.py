@@ -69,10 +69,10 @@ numRG = 100
 # eta = 1/(5*0.75*m*p)
 # eta, the learning rate of beta
 etab = 0.01 
-etaTs = [10, 1e-1, 5e-2]
-etaTsc = [300, 230]
+etaTs = [1e-1, 1e-2]
+etaTsc = [180]
 # Termination  tolerance.
-tol = 1e-5
+tol = 1e-6
 TrueParas = [beta0, bTheta0]
 # The list to contain output results
 results = [{"beta0":beta0.cpu(), "bTheta0":bTheta0.cpu(), "etab":etab, "tol": tol}]
@@ -93,13 +93,13 @@ for i in range(numRG):
     len1  = len(Cbpool)
     # I have the prior that in general, Cb should be greater than CT
     idx1 = np.random.randint(0, len1)
-    Cb, CT = Cbpool[idx1], 1e-2
+    Cb, CT = Cbpool[idx1], 2e-3
     #----------------------------------------------------------------------------------------------------
 
     print(f"The {i+1}/{numRG}, Cb is {Cb:>8.4g}, CT is {CT:>8.4g}")
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs = NewBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tol=tol, log=0, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tol=tol, log=2, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])
@@ -112,7 +112,7 @@ for i in range(numRG):
         errb = torch.norm(beta0-betahat)
         errT = torch.norm(bTheta0-bThetahat)
         results.append((numI, Cb, errb.item(), betahat.norm().item(), CT, errT.item(), bThetahat.norm().item()))
-        Errs.append([Berrs, Terrs])
+        Errs.append([Berrs, Terrs, betahats, bThetahats, Likelis])
         print(
             f"The {i+1}th/{numRG},"
             f"The Iteration number is {numI}, "

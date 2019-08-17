@@ -1350,6 +1350,9 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
     # To contain the training errors of bTheta and beta, respectively.
     Terrs = []
     Berrs = []
+    Likelis = []
+    bThetahats = []
+    betahats = []
 
     # The true parameters
     beta0, bTheta0 = TrueParas
@@ -1439,6 +1442,9 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         if ErrOpts:
             Terrs.append((bTheta0-bThetaOld).norm().item())
             Berrs.append((beta0-betaOld).norm().item())
+            Likelis.append(LvNow.item())
+            bThetahats.append(bThetaOld.norm().item())
+            betahats.append(betaOld.norm().item())
         if log==1:
             tb2 = PrettyTable(["Iteration", "etaT", "Loss", "Error of beta", "Error of Theta"])
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
@@ -1461,6 +1467,6 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         betaOld, bThetaOld = betaNew, bThetaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:
-        return betaOld, bThetaOld, t+1, Berrs, Terrs
+        return betaOld, bThetaOld, t+1, Berrs, Terrs, betahats, bThetahats, Likelis
     else:
         return betaOld, bThetaOld, t+1

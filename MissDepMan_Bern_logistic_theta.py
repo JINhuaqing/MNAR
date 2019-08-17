@@ -70,7 +70,7 @@ CT = 2e-3
 results["CT"] = CT
 
 print(f"CT is {CT:>8.4g}")
-bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=[1, 5e-2, 1e-2], etaTsc=[180])
+bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=[1, 1e-1, 1e-2], etaTsc=[300, 180])
 LpTTvhat = LpTTBern(bThetahat, beta0, conDenfs, X, Y, R, prob) # n x m
 errT = torch.norm(bTheta0-bThetahat)
 results["errT"], results["bhatnorm"], results["minEigTT"] = errT.item(), bThetahat.norm().item(), LpTTvhat.min().item()
