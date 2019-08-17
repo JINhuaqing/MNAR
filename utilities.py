@@ -709,9 +709,6 @@ def LBern(bTheta, beta, f, X, Y, R, prob=0.5):
 
     itm1 = torch.log(f(Y, TbX)+seps)
 
-    # TbsXs = bTheta.unsqueeze(dim=-1) + bsXs
-    # Ym = Y.unsqueeze(dim=-1) + torch.zeros(N)
-    
     itm2 = torch.log(intBernh(f, bTheta, beta, Y, prob)+seps)
 
     itm = R * (itm1 - itm2)
@@ -1236,6 +1233,8 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     f, f2, f22 = conDenfs
     # To contain the training errors of bTheta, respectively.
     Terrs = []
+    Likelis = []
+    bThetahats = []
 
     # The true parameters
     beta0, bTheta0 = TrueParas
@@ -1295,13 +1294,15 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         # This block is for log output and Error save, nothing to do with the algorithm
         if ErrOpts:
             Terrs.append((bTheta0-bThetaOld).norm().item())
+            Likelis.append(LvNow.item())
+            bThetahats.append(bThetaOld.norm().item())
         if log==1:
             tb2 = PrettyTable(["Iteration", "etaT", "Loss", "Error of Theta"])
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "etaT", "Loss",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}",  f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            tb2 = PrettyTable(["Iteration", "etaT", "Loss", "-likelihood",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}",  f"{bThetaNew.norm().item():>8.3f}", f"{(bThetaOld-bThetaNew).norm().item():>8.3f}"])
             print(tb2)
         #--------------------------------------------------------------------------------
@@ -1317,7 +1318,7 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         bThetaOld = bThetaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:
-        return bThetaOld, t+1, Terrs
+        return bThetaOld, t+1, Terrs, Likelis, bThetahats
     else:
         return bThetaOld, t+1
 
@@ -1443,8 +1444,8 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "etaT", "Loss", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            tb2 = PrettyTable(["Iteration", "etaT", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>8.3g}", f"{(bThetaOld-bThetaNew).norm().item():>8.3g}"])
             print(tb2)
         #--------------------------------------------------------------------------------

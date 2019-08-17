@@ -7,8 +7,9 @@ import timeit
 import time
 from confs import fln, fln2, fln22
 
-#------------------------------------------------------------------------------------ # fix the random seed for several packages
-torch.manual_seed(10) # cpu
+#------------------------------------------------------------------------------------ 
+# fix the random seed for several packages
+torch.manual_seed(0) # cpu
 torch.cuda.manual_seed(0) #gpu
 np.random.seed(0) #numpy
 random.seed(0) #random and transforms
@@ -59,17 +60,17 @@ TrueParas = [beta0, bTheta0]
 results = {"bTheta0":bTheta0.cpu(), "tol": tol}
 # initial value of bTheta
 bThetainit = bTheta0 * (1 + (torch.rand(n,m)-0.5))
-#bThetainit = bTheta0 * 0.99
 
 #------------------------------------------------------------------------------------
 print({"bTheta0_norm":bTheta0.cpu().norm().item(), "tol": tol})
 # The list to contain training errors 
 
 #------------------------------------------------------------------------------------
-CT = CTpool[0] * 100
+CT = 2e-3 
+results["CT"] = CT
 
 print(f"CT is {CT:>8.4g}")
-bThetahat, numI, Terrs = BthetaBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=[1, 1e-1, 5e-2], etaTsc=[700])
+bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=[1, 5e-2, 1e-2], etaTsc=[180])
 LpTTvhat = LpTTBern(bThetahat, beta0, conDenfs, X, Y, R, prob) # n x m
 errT = torch.norm(bTheta0-bThetahat)
 results["errT"], results["bhatnorm"], results["minEigTT"] = errT.item(), bThetahat.norm().item(), LpTTvhat.min().item()
@@ -82,6 +83,6 @@ print(
 
     
 # Save the output
-f = open("./outputs/Bern_theta_100_1.pkl", "wb")
-pickle.dump([results, Terrs], f)
+f = open("./outputs/Bern_theta_100_1e-2_2e-3.pkl", "wb")
+pickle.dump([results, Terrs, Likelis, bThetahats], f)
 f.close()
