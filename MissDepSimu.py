@@ -28,8 +28,8 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p, N
 # N is number of samples used for MCMC
-n = 100
-m = 100
+n = 250
+m = 250
 p = 100
 N = 20000
 
@@ -72,7 +72,7 @@ params["Xtype"] = "Bernoulli"
 params["Y|X_type"] = "logistic"
 params["etaTs"] =  etaTs
 params["etaTsc"] =  etaTsc
-params["MissRate"] = MissRate
+params["MissRate"] = MissRate.item()
 params["numSimu"] = numSimu
 
 pprint.pprint(params)
@@ -113,6 +113,6 @@ for i in range(numSimu):
         )
 
 # Save the output
-f = open("./outputs/Simulation_demo.pkl", "wb")
+f = open(f"./outputs/Simulation_demo{m}.pkl", "wb")
 pickle.dump([params, results, Errs], f)
 f.close()
