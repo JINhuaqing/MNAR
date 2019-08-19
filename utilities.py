@@ -13,7 +13,7 @@ __all__  = [
     "genXdis", "genX", "genR", "genbTheta", "genYnorm", "genbeta", "MCGDnormal", 
     "omegat" , "Rub", "ParaDiff", "LamTfn", "Lambfn", "LpTnormal", "Lpbnormal",
     "LBern", "LpTBern", "LpbBern", "MCGDBern", "Dshlowerfnorm", "genYtnorm", 
-    "genYlogit", "Dshlowerflogit", "missdepLpTT", "LpTTBern", "BthetaBern", "NewBern"
+    "genYlogit", "Dshlowerflogit", "missdepLpTT", "LpTTBern", "BthetaBern", "NewBern", "BetaBern"
 ]
 
 #----------------------------------------------------------------------------------------------------------------
@@ -1322,8 +1322,125 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     else:
         return bThetaOld, t+1
 
+# New algorithm  to optimize the bTheta when X is Bernoulli 
+def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=None, tol=1e-4, prob=0.1, ErrOpts=0, etabs=None, etabsc=None):
+    """
+    MaxIters: max iteration number.
+    X: the covariate matrix, n x m x p
+    Y: the response matrix, n x m
+    R: the Missing matrix, n x m
+    conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
+             [f, f2, f22]. In fact, f22 is not used.
+    Trueparas: True paramter of beta and bTheta, a list like [beta0, bTheta0]
+    Cb: the constant of Lambda_beta
+    log: Whether output detail training log. 0 not output, 1 output simple training log, 2 output detailed training log.
+    betainit: initial value of bTheta
+    tol: terminate tolerace.
+    prob: sucessful probability of entry of X
+    ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
+    """
+    n, m, p = X.shape
+    f, f2, _ = conDenfs
+    numExact = 14
+    # To contain the training errors of bTheta, respectively.
+    Berrs = []
+    Likelis = []
+    betahats = []
+
+    # The true parameters
+    beta0, bTheta0 = TrueParas
+    # Initial the value of beta
+    betaOld = torch.rand(p) if betainit is None else betainit
+    # the relative change of Loss, i.e. |L_k - L_k+1|/max(|L_k|, |L_k+1|, 1), here the L_k and L_k+1 are with penalty items.
+    reCh = 1
+
+    # Under Cb, compute the Lambda_beta 
+    Lamb = Lambfn(Cb, n, m)
+
+    etabs = sorted(etabs)
+    etabsc = sorted(etabsc, reverse=1)
+    etab = etabs.pop()
+    # The log output, nothing to do with algorithm.
+    if log>=0:
+        tb1 = PrettyTable(["Basic Value", "Lamb", "norm of beta0"])
+        tb1.add_row(["",  f"{Lamb.item():>5.3g}", f"{beta0.norm().item():>5.3g}"])
+        print(tb1)
+    # The loss, i.e. L +  Lamdab_beta * ||beta||
+    Losses = []
+
+    # Starting optimizing.
+    for t in range(MaxIters):
+        if len(etabsc) > 0:
+            if t >= etabsc[-1]:
+                if len(etabs) > 0:
+                    etab = etabs.pop()
+                etabsc.pop()
+        #--------------------------------------------------------------------------------
+        # To get the number of nonzeros entry in betaOld
+        NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
+        #--------------------------------------------------------------------------------
+        # compute the loss function (with penalty items) under betaOld and bThetaOld
+
+        # Compute L (without penalty items) 
+        # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
+        if NumN0Old > numExact:
+            LvNow = missdepL(bTheta0, betaOld, f, X, Y, R, sXs)
+        else:
+            LvNow = LBern(bTheta0, betaOld, f, X, Y, R, prob)
+        # Add L with penalty items.
+        LossNow = missdepLR(LvNow, bTheta0, betaOld, 0, Lamb)
+        Losses.append(LossNow.item())
+
+        #--------------------------------------------------------------------------------
+        # This block is to update beta.
+        # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
+        if NumN0Old > numExact:
+            betaNewRaw = betaOld - etab * missdepLpb(bTheta0, betaOld, conDenfs, X, Y, R, sXs)
+        else:
+            betaNewRaw = betaOld - etab * LpbBern(bTheta0, betaOld, conDenfs, X, Y, R, prob)
+        # Using rho function to soften updated beta
+        betaNew = SoftTO(betaNewRaw, etab*Lamb)
+        #--------------------------------------------------------------------------------
+        # compute the relative change of Loss
+        if t >= 1:
+            Lk1 = Losses[-1]
+            Lk = Losses[-2]
+            reCh = np.abs(Lk1-Lk)/np.max(np.abs((Lk, Lk1, 1))) 
+        #--------------------------------------------------------------------------------
+        # This block is for log output and Error save, nothing to do with the algorithm
+        if ErrOpts:
+            Berrs.append((beta0-betaOld).norm().item())
+            Likelis.append(LvNow.item())
+            betahats.append(betaOld.norm().item())
+        if log==1:
+            tb2 = PrettyTable(["Iteration", "etab", "Loss", "Error of beta"])
+            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}"])
+            print(tb2)
+        if log==2:
+            tb2 = PrettyTable(["Iteration", "etab", "Loss", "-likelihood",  "Error of beta", "reCh", "Norm of betat", "Norm of difference"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.5g}", f"{torch.norm(beta0-betaNew).item():>8.3f}",
+                f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>8.5g}"])
+            print(tb2)
+        #--------------------------------------------------------------------------------
+        # if reCh is smaller than tolerance, stop the loop
+        if t >= 1:
+            if (reCh < tol):
+                break
+        # if the difference of 2 consecutive bThetahat is smaller than tolerance, stop the loop
+        if (betaOld-betaNew).norm() < tol:
+            break
+        #--------------------------------------------------------------------------------
+        # Change New to Old for starting next iteration
+        betaOld = betaNew 
+   #--------------------------------------------------------------------------------
+    if ErrOpts:
+        return betaOld, t+1, Berrs, Likelis, betahats
+    else:
+        return betaOld, t+1
+
+
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli 
-def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etab=None, etaTs=None, etaTsc=None):
+def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etabs=None, etabsc=None, etaTs=None, etaTsc=None):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -1374,16 +1491,24 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         etaTs = sorted(etaTs, reverse=1)
         etaTsc = sorted(etaTsc, reverse=1)
         etaT = etaTs.pop()
+    etabs = sorted(etabs)
+    etabsc = sorted(etabsc, reverse=1)
+    etab = etabs.pop()
     # The log output, nothing to do with algorithm.
     if log>=0:
-        tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "etab", "norm of beta0", "norm of bTheta0"])
-        tb1.add_row(["",  f"{Lamb.item():>5.3g}", f"{LamT.item():>5.3g}", f"{etab:>5.3g}", f"{beta0.norm().item():>5.3g}", f"{bTheta0.norm().item():>5.3g}"])
+        tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "norm of beta0", "norm of bTheta0"])
+        tb1.add_row(["",  f"{Lamb.item():>5.3g}", f"{LamT.item():>5.3g}", f"{beta0.norm().item():>5.3g}", f"{bTheta0.norm().item():>5.3g}"])
         print(tb1)
     # The loss, i.e. L +  Lamdab_bTheta * ||bTheta||
     Losses = []
 
     # Starting optimizing.
     for t in range(MaxIters):
+        if len(etabsc) > 0:
+            if t >= etabsc[-1]:
+                if len(etabs) > 0:
+                    etab = etabs.pop()
+                etabsc.pop()
         if (etaTsc is not None) and (len(etaTsc) > 0):
             if t >= etaTsc[-1]:
                 if len(etaTs) > 0:
@@ -1450,8 +1575,8 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "etaT", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            tb2 = PrettyTable(["Iteration", "etaT", "etab", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>8.3g}", f"{(bThetaOld-bThetaNew).norm().item():>8.3g}"])
             print(tb2)
         #--------------------------------------------------------------------------------

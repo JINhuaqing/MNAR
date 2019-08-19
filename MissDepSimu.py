@@ -28,8 +28,8 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p, N
 # N is number of samples used for MCMC
-n = 250
-m = 250
+n = 100
+m = 100
 p = 100
 N = 20000
 
@@ -55,15 +55,16 @@ conDenfs = [fln, fln2, fln22]
 numSimu = 100
 # eta = 1/(5*0.75*m*p)
 # eta, the learning rate of beta
-etab = 0.01 
+etabs = [1e-1, 5e-1]
 etaTs = [1e-1, 1e-2]
+etabsc = [400]
 etaTsc = [180]
 # Termination  tolerance.
-tol = 1e-4
-Cb, CT = 162.58, 2e-3
+tol = 4e-5
+Cb, CT = 10, 2e-3
 TrueParas = [beta0, bTheta0]
 # The list to contain output results
-params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "etab":etab, "tol": tol, "CT":CT, "Cb":Cb }
+params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tol": tol, "CT":CT, "Cb":Cb }
 params["n"] = n
 params["m"] = m
 params["p"] = p
@@ -72,6 +73,8 @@ params["Xtype"] = "Bernoulli"
 params["Y|X_type"] = "logistic"
 params["etaTs"] =  etaTs
 params["etaTsc"] =  etaTsc
+params["etabs"] =  etabs
+params["etabsc"] =  etabsc
 params["MissRate"] = MissRate.item()
 params["numSimu"] = numSimu
 
@@ -91,7 +94,7 @@ for i in range(numSimu):
     #----------------------------------------------------------------------------------------------------
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(2000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tol=tol, log=0, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(2000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tol=tol, log=0, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])

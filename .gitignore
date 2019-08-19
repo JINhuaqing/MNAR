@@ -1,5 +1,6 @@
 .idea
 plot_file/
 imgs*/
-# outputs/*.py
+*.swp
+outputs/*.pkl
 __pycache__/

@@ -45,15 +45,22 @@ for f in files:
     xlist.append(n*m)
     Berrs.append(preB*Berr)
     Terrs.append(preT*Terr)
+    #Berrs.append(Berr)
+    #Terrs.append(Terr)
 
 plt.subplots_adjust(hspace=0.5)
 plt.subplot(211)
+plt.xlabel("mxn")
+plt.ylabel("error")
 plt.title("beta curve")
-plt.plot(xlist, Berrs, "r--")
+plt.plot(xlist[1:], Berrs[1:], "r--")
 plt.subplot(212)
+plt.xlabel("mxn")
+plt.ylabel("error")
 plt.title("theta curve")
-plt.plot(xlist, Terrs, "g-.")
+plt.plot(xlist[1:], Terrs[1:], "g-.")
 plt.savefig("curveplt.jpg")
+
 
     
         
