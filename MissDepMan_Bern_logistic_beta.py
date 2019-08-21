@@ -8,6 +8,7 @@ import time
 import pprint
 from confs import fln, fln2, fln22
 
+torch.cuda.set_device(2)
 #------------------------------------------------------------------------------------ 
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -31,6 +32,7 @@ n = 100
 m = 100
 p = 100
 N = 20000
+prefix = n*m/10000
 
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
@@ -50,8 +52,8 @@ conDenfs = [fln, fln2, fln22]
 #------------------------------------------------------------------------------------
 # Termination  tolerance.
 Cb = 10
-tol = 1e-10
-etabs = [1e-1, 5e-1]
+tol = 1e-9
+etabs = [1e-1, 2*5e-1]
 etabsc = [1000]
 TrueParas = [beta0, bTheta0]
 # The list to contain output results
@@ -75,7 +77,7 @@ betainit = beta0 * (1 + (torch.rand(p)-0.5))
 results = {}
 
 print(f"Cb is {Cb:>8.4g}")
-betahat, numI, Berrs, Likelis, betahats = BetaBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, tol=tol, log=2, prob=prob, betainit=betainit, ErrOpts=1, etabs=etabs, etabsc=etabsc)
+betahat, numI, Berrs, Likelis, betahats = BetaBern(2000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, tol=tol, log=2, prob=prob, betainit=betainit, ErrOpts=1, etabs=etabs, etabsc=etabsc)
 errb = torch.norm(beta0-betahat)
 results["errb"], results["betanorm"] = errb.item(), betahat.norm().item()
 results["numI"], results["Cb"] = numI, Cb

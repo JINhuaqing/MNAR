@@ -7,6 +7,7 @@ import timeit
 import time
 from confs import fln, fln2, fln22
 
+torch.cuda.set_device(2)
 #------------------------------------------------------------------------------------ 
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu

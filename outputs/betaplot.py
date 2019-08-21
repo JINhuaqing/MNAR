@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 Cb = 10
-etab = 5e-1
+etab = 5e-1*2*4
 root = Path('./')
 rootdir = root/"img"
 if not rootdir.is_dir():

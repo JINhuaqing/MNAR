@@ -9,6 +9,7 @@ import pprint
 from confs import fln, fln2, fln22
 
 
+torch.cuda.set_device(3)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -28,23 +29,18 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p, N
 # N is number of samples used for MCMC
-n = 100
-m = 100
+n = 300
+m = 300
 p = 100
 N = 20000
 
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
 prob = 1000/n/m
-X = genXdis(n, m, p, type="Bern", prob=prob) 
+# generate the parameters
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, -3, -4, 5]), torch.zeros(p-7)))
 bTheta0 = genbTheta(n, m, rank=5) * 8
-Y = genYlogit(X, bTheta0, beta0)
-R = genR(Y, inp=1.3)
-# TO find the missing rate, I control the missing rate around 0.25
-MissRate = R.sum()/R.numel()
-# generate the samples for MCMC
-sXs = genXdis(N, p, type="Bern", prob=prob) 
+TrueParas = [beta0, bTheta0]
 # The likelihood and its derivatives of Y|X
 conDenfs = [fln, fln2, fln22]
 
@@ -52,7 +48,7 @@ conDenfs = [fln, fln2, fln22]
 
 #------------------------------------------------------------------------------------
 # The number of times to do random grid search
-numSimu = 100
+numSimu = 50
 # eta = 1/(5*0.75*m*p)
 # eta, the learning rate of beta
 etabs = [1e-1, 5e-1]
@@ -62,7 +58,6 @@ etaTsc = [180]
 # Termination  tolerance.
 tol = 4e-5
 Cb, CT = 10, 2e-3
-TrueParas = [beta0, bTheta0]
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tol": tol, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -75,8 +70,8 @@ params["etaTs"] =  etaTs
 params["etaTsc"] =  etaTsc
 params["etabs"] =  etabs
 params["etabsc"] =  etabsc
-params["MissRate"] = MissRate.item()
 params["numSimu"] = numSimu
+params["MissRate"] = []
 
 pprint.pprint(params)
 
@@ -86,8 +81,16 @@ Errs = []
 results = []
 
 #------------------------------------------------------------------------------------
-# Random grid search
 for i in range(numSimu):
+    # generate the samples
+    X = genXdis(n, m, p, type="Bern", prob=prob) 
+    Y = genYlogit(X, bTheta0, beta0)
+    R = genR(Y, inp=1.3)
+    # TO find the missing rate, I control the missing rate around 0.25
+    MissRate = R.sum()/R.numel()
+    params["MissRate"].append(MissRate.item())
+    # generate the samples for MCMC
+    sXs = genXdis(N, p, type="Bern", prob=prob) 
     # initial value of beta and bTheta
     betainit = beta0 * (1 + (torch.rand(p)-1/2))
     bThetainit = bTheta0 * (1 + (torch.rand(n,m)-1/2))

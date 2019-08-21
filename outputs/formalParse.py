@@ -3,7 +3,7 @@ from pickle import load
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-num = 100
+num = 250
 root = Path('./')
 imgdir = root/f"SimuImgs{num}"
 if not imgdir.is_dir():

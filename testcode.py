@@ -8,6 +8,17 @@ import time
 from scipy.stats import norm as STN
 from confs import fln, fln2, fln22
 
+# mat = np.random.rand(100, 100)
+# svdnp = np.linalg.svd(mat)
+# Tmat = torch.tensor(mat)
+# svdtorch = torch.svd(Tmat)
+# 
+# Unp, Snp, VTnp = svdnp
+# Utorch, Storch, VTtorch = svdtorch.U, svdtorch.S, svdtorch.V.t()
+# Unp, Snp, VTnp = torch.tensor(Unp), torch.tensor(Snp), torch.tensor(VTnp)
+# print((Unp-Utorch).norm(), (Snp-Storch).norm(), (VTnp-VTtorch).norm())
+# 
+# raise SystemExit
 torch.manual_seed(0) # cpu
 torch.cuda.manual_seed(0) #gpu
 np.random.seed(0) #numpy
@@ -113,24 +124,29 @@ def ftn22(y, m, bsXs=None, sigma=sigma, a=a, b=b):
 n = 100
 m = 100
 p = 100
-N = 10000
+N = 100000
 sigmax = np.sqrt(1/3)
 
 X = genXdis(n, m, p, type="bern", prob=0.1) 
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, 3, 4, 5]), torch.zeros(p-7)))
 bTheta0 = genbTheta(n, m) 
-res = torch.svd(bTheta0)
-print(bTheta0)
 M = bTheta0 + X.matmul(beta0)
 Y = genYlogit(X, bTheta0, beta0)
+R = genR(Y, inp=1.5)
+print(R.sum()/R.numel())
 sXs = genXdis(N, p, type="Bern", prob=0.1) 
-print(Dshlowerflogit(Y, X, beta0, bTheta0))
-
-#R = genR(Y)
-## print(X.matmul(beta0).abs().mean(), bTheta0.abs().mean())
-#print(R.sum()/R.numel())
-#sXs = genXdis(N, p, type="mvnorm", sigmax=sigmax) 
-##print(ftn(Y.unsqueeze(-1), bTheta0.unsqueeze(-1)+beta0.matmul(sXs)).norm())
-##print(fn(Y.unsqueeze(-1), bTheta0.unsqueeze(-1)+beta0.matmul(sXs)).norm())
-##print(fn(Y, bTheta0, beta0.matmul(sXs)).norm())
-#conDenfs = [ftn, ftn2, ftn22]
+conDenfs = [fln, fln2, fln22]
+TrueParas = [beta0, bTheta0]
+# TTv1 = missdepLpTT(bTheta0, beta0, conDenfs, X, Y, R, sXs)
+# TTv2 = LpTTBern(bTheta0, beta0, conDenfs, X, Y, R, prob=0.1)
+# print((TTv1-TTv2).norm(), TTv1.norm())
+# Tv1 = missdepLpT(bTheta0, beta0, conDenfs, X, Y, R, sXs)
+# Tv2 = LpTBern(bTheta0, beta0, conDenfs, X, Y, R, prob=0.1)
+# print((Tv1-Tv2).norm(), Tv1.norm(), Tv2.norm())
+# Bv1 = missdepLpb(bTheta0, beta0, conDenfs, X, Y, R, sXs)
+# Bv2 = LpbBern(bTheta0, beta0, conDenfs, X, Y, R, prob=0.1)
+# print((Bv1-Bv2).norm())
+# v1 = missdepL(bTheta0, beta0, conDenfs[0], X, Y, R, sXs)
+# v2 = LBern(bTheta0, beta0, conDenfs[0], X, Y, R, prob=0.1)
+# print((v1-v2).norm(), v1.norm(), v2.norm())
+BthetaBern(1000, X, Y, R, conDenfs, TrueParas, CT=1e-5, log=2, prob=0.1, tol=1e-15, bThetainit=1.1*bTheta0)

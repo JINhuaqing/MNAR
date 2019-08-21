@@ -43,23 +43,24 @@ for f in files:
     preT = prefixTheta(n, m, p, r)
     Berr, Terr = np.median(resarr, axis=0)[[2, 5]]
     xlist.append(n*m)
-    Berrs.append(preB*Berr)
-    Terrs.append(preT*Terr)
-    #Berrs.append(Berr)
-    #Terrs.append(Terr)
+    # Berrs.append(preB*Berr)
+    # Terrs.append(preT*Terr)
+    Berrs.append(Berr)
+    Terrs.append(Terr)
 
 plt.subplots_adjust(hspace=0.5)
 plt.subplot(211)
 plt.xlabel("mxn")
 plt.ylabel("error")
 plt.title("beta curve")
-plt.plot(xlist[1:], Berrs[1:], "r--")
+plt.plot(xlist, Berrs, "r--")
 plt.subplot(212)
 plt.xlabel("mxn")
 plt.ylabel("error")
 plt.title("theta curve")
-plt.plot(xlist[1:], Terrs[1:], "g-.")
-plt.savefig("curveplt.jpg")
+plt.plot(xlist, Terrs, "g-.")
+plt.savefig("curveplt_2_errvsmn.jpg")
+
 
 
     
