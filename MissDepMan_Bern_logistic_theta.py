@@ -30,6 +30,7 @@ if cuda:
 n = 100
 m = 100
 p = 100
+initthetapref = 1 + (torch.rand(n, m)-1/2)/2
 
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
@@ -60,8 +61,10 @@ TrueParas = [beta0, bTheta0]
 # The list to contain output results
 results = {"bTheta0":bTheta0.cpu(), "tol": tol}
 # initial value of bTheta
-bThetainit = bTheta0 * (1 + (torch.rand(n,m)-0.5))
-
+bThetainit = bTheta0 * initthetapref
+etaTs = [1, 1e-0, 1e-2]
+#etaTsc = [300, 180]
+etaTsc = [120]
 #------------------------------------------------------------------------------------
 print({"bTheta0_norm":bTheta0.cpu().norm().item(), "tol": tol})
 # The list to contain training errors 
@@ -71,7 +74,7 @@ CT = 2e-3
 results["CT"] = CT
 
 print(f"CT is {CT:>8.4g}")
-bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=[1, 1e-1, 1e-2], etaTsc=[300, 180])
+bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(2000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
 LpTTvhat = LpTTBern(bThetahat, beta0, conDenfs, X, Y, R, prob) # n x m
 errT = torch.norm(bTheta0-bThetahat)
 results["errT"], results["bhatnorm"], results["minEigTT"] = errT.item(), bThetahat.norm().item(), LpTTvhat.min().item()
@@ -84,6 +87,6 @@ print(
 
     
 # Save the output
-f = open("./outputs/Bern_theta_100_1e-2_2e-3.pkl", "wb")
+f = open("./outputs/Bern_theta_100_test.pkl", "wb")
 pickle.dump([results, Terrs, Likelis, bThetahats], f)
 f.close()

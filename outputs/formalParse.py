@@ -3,7 +3,7 @@ from pickle import load
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-num = 250
+num = 150
 root = Path('./')
 imgdir = root/f"SimuImgs{num}"
 if not imgdir.is_dir():
@@ -14,7 +14,8 @@ with open(f"Simulation_demo{num}.pkl", "rb") as f:
 
 params, results, errss = data
 resarr = np.array(results)
-print(np.median(resarr, axis=0)[[2, 5]])
+print(resarr[:, [2, 5]])
+print(np.mean(resarr, axis=0)[[2, 5]])
 
 # for errs in errss:
 #     Berrs, Terrs, betas, thetas, likelis = errs

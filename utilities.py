@@ -77,14 +77,14 @@ def Dshlowerfnorm(Y, X, beta, bTheta, sigma=0.5):
 
 # Blist is to generate all possible results for s binary data which will be used in exact integration.
 # e.g, s = 3, then Blist return a matrix like
-# 0, 0, 0
-# 0, 0, 1
-# 0, 1, 0
-# 0, 1, 1
-# 1, 0, 0
-# 1, 0, 1
-# 1, 1, 0
-# 1, 1, 1
+#  0,  0,  0 
+#  0,  0,  1
+#  0,  1,  0
+#  0,  1,  1
+#  1,  0,  0
+#  1,  0,  1
+#  1,  1,  0 
+#  1,  1,  1
 def Blist(s):
     slist = list(range(2**s))
     mat = []
@@ -795,7 +795,7 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
         assert prob is not None, "You should provide a probability parameter!" 
         X = npr.uniform(0, 1, args)
         idx0, idx1 = X>=prob, X<prob
-        X[idx0] = 0
+        X[idx0] = 0 
         X[idx1] = 1
     else:
         raise TypeError("No such type of X!")
@@ -1370,6 +1370,7 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
 
     # Starting optimizing.
     for t in range(MaxIters):
+        #print(betaOld)
         if len(etabsc) > 0:
             if t >= etabsc[-1]:
                 if len(etabs) > 0:
@@ -1378,6 +1379,7 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
+        print(NumN0Old)
         #--------------------------------------------------------------------------------
         # compute the loss function (with penalty items) under betaOld and bThetaOld
 
@@ -1440,7 +1442,7 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
 
 
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli 
-def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etabs=None, etabsc=None, etaTs=None, etaTsc=None):
+def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etabs=None, etabsc=None, etaTs=None, etaTsc=None):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -1463,6 +1465,7 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
     """
     n, m, p = X.shape
     f, f2, f22 = conDenfs
+    tolb, tolT = tols
     numExact = 14
     # To contain the training errors of bTheta and beta, respectively.
     Terrs = []
@@ -1577,15 +1580,15 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         if log==2:
             tb2 = PrettyTable(["Iteration", "etaT", "etab", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference"])
             tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
-                f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>8.3g}", f"{(bThetaOld-bThetaNew).norm().item():>8.3g}"])
+                f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>10.3g}", f"{(bThetaOld-bThetaNew).norm().item():>10.3g}"])
             print(tb2)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
-        if t >= 1:
-            if (reCh < tol):
-                break
+        # if t >= 1:
+        #     if (reCh < tol):
+        #         break
         # if the difference of 2 consecutive bThetahat is smaller than tolerance, stop the loop
-        if ((bThetaOld-bThetaNew).norm() < tol) and ((betaOld-betaNew).norm() < tol):
+        if ((bThetaOld-bThetaNew).norm() < tolT) and ((betaOld-betaNew).norm() < tolb):
             break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
