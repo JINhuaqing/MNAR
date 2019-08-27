@@ -53,7 +53,7 @@ initthetapref = 1 + (torch.rand(n, m)-1/2)/2
 prefix = n*m/10000
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
-prob = 1000/n/m
+prob = 0.05 # 1000/n/m
 # generate the parameters
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, -3, -4, 5]), torch.zeros(p-7)))
 bTheta0 = genbTheta(n, m, rank=5) * 8
@@ -72,12 +72,13 @@ numSimu = numSimu
 # eta = 1/(5*0.75*m*p)
 # eta, the learning rate of beta
 etabs = [prefix*1e-1, prefix*5e-1]
-etaTs = [1e-1, 1e-2]
-etabsc = [400]
-etaTsc = [110]
+etaTs = [5e-1, 1e-2]
+etabsc = [90]
+etaTsc = [120]
 # Termination  tolerance.
-tols = [2.65e-3, 1.9e-1]
-Cb, CT = 10, 2e-3
+tols = [9e-6, 2.65e-6, 1.9e-6]
+#tols = [2.65e-3, 1.9e-1]
+Cb, CT = 6, 2e-3
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -105,7 +106,7 @@ for i in range(numSimu):
     # generate the samples
     X = genXdis(n, m, p, type="Bern", prob=prob) 
     Y = genYlogit(X, bTheta0, beta0)
-    R = genR(Y, inp=1.3)
+    R = genR(Y, inp=1.25)
     # TO find the missing rate, I control the missing rate around 0.25
     MissRate = R.sum()/R.numel()
     params["MissRate"].append(MissRate.item())

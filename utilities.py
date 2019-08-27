@@ -1257,7 +1257,7 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     # The log output, nothing to do with algorithm.
     if log>=0:
         tb1 = PrettyTable(["Basic Value", "LamT", "etaT", "LamT/etaT", "norm of bTheta0"])
-        tb1.add_row(["",  f"{LamT.item():>5.3g}", f"{etaT:>5.3g}", f"{LamT.norm()/etaT:>5.3g}", f"{bTheta0.norm().item():>5.3g}"])
+        tb1.add_row(["",  f"{LamT.item():>5.3g}", f"{etaT:>5.3g}", f"{LamT.norm()/etaT:>5.3g}", f"{bTheta0.norm().item():>8.3g}"])
         print(tb1)
     # The loss, i.e. L +  Lamdab_bTheta * ||bTheta||
     Losses = []
@@ -1303,7 +1303,7 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         if log==2:
             tb2 = PrettyTable(["Iteration", "etaT", "Loss", "-likelihood",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
             tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
-                f"{reCh:>8.4g}",  f"{bThetaNew.norm().item():>8.3f}", f"{(bThetaOld-bThetaNew).norm().item():>8.3f}"])
+                f"{reCh:>8.4g}",  f"{bThetaNew.norm().item():>8.3f}", f"{(bThetaOld-bThetaNew).norm().item():>8.3g}"])
             print(tb2)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
@@ -1465,7 +1465,7 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
     """
     n, m, p = X.shape
     f, f2, f22 = conDenfs
-    tolb, tolT = tols
+    tol, tolb, tolT = tols
     numExact = 14
     # To contain the training errors of bTheta and beta, respectively.
     Terrs = []
@@ -1579,17 +1579,17 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
             print(tb2)
         if log==2:
             tb2 = PrettyTable(["Iteration", "etaT", "etab", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.3f}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.6g}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>10.3g}", f"{(bThetaOld-bThetaNew).norm().item():>10.3g}"])
             print(tb2)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
-        # if t >= 1:
-        #     if (reCh < tol):
-        #         break
+        if t >= 1:
+            if (reCh < tol):
+                break
         # if the difference of 2 consecutive bThetahat is smaller than tolerance, stop the loop
-        if ((bThetaOld-bThetaNew).norm() < tolT) and ((betaOld-betaNew).norm() < tolb):
-            break
+        #if ((bThetaOld-bThetaNew).norm() < tolT) and ((betaOld-betaNew).norm() < tolb):
+        #    break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
         betaOld, bThetaOld = betaNew, bThetaNew 

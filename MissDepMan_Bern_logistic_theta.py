@@ -34,25 +34,17 @@ initthetapref = 1 + (torch.rand(n, m)-1/2)/2
 
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
-prob = 1000/n/m
+prob = 0.05
 X = genXdis(n, m, p, type="Bern", prob=prob) 
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, -3, -4, 5]), torch.zeros(p-7)))
 bTheta0 = genbTheta(n, m, rank=5) * 8 
 #M = bTheta0 + X.matmul(beta0)
 Y = genYlogit(X, bTheta0, beta0)
-R = genR(Y, inp=1.3)
+R = genR(Y, inp=1.25)
 # TO find the missing rate, I control the missing rate around 0.25
 print(R.sum()/R.numel())
 # The likelihood and its derivatives of Y|X
 conDenfs = [fln, fln2, fln22]
-
-#LpTv0 = LpTBern(bTheta0, beta0, conDenfs, X, Y, R, prob)
-#S = torch.svd(LpTv0).S
-#print(S.max(), "---")
-
-#------------------------------------------------------------------------------------
-# I use random grid search to find good parameters, so the following are the search spaces 
-CTpool = np.exp(np.linspace(np.log(1e-6), np.log(1e-3), 100))
 
 #------------------------------------------------------------------------------------
 # Termination  tolerance.
@@ -62,7 +54,7 @@ TrueParas = [beta0, bTheta0]
 results = {"bTheta0":bTheta0.cpu(), "tol": tol}
 # initial value of bTheta
 bThetainit = bTheta0 * initthetapref
-etaTs = [1, 1e-0, 1e-2]
+etaTs = [5e-1, 1e-2]
 #etaTsc = [300, 180]
 etaTsc = [120]
 #------------------------------------------------------------------------------------
@@ -87,6 +79,6 @@ print(
 
     
 # Save the output
-f = open("./outputs/Bern_theta_100_test.pkl", "wb")
+f = open(f"./outputs/Bern_theta_{m}_{CT:.0E}_{etaTs[-1]:.0E}.pkl", "wb")
 pickle.dump([results, Terrs, Likelis, bThetahats], f)
 f.close()
