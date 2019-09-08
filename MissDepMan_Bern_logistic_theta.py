@@ -27,8 +27,8 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p, N
 # N is number of samples used for MCMC
-n = 100
-m = 100
+n = 200
+m = 200
 p = 100
 initthetapref = 1 + (torch.rand(n, m)-1/2)/2
 
@@ -56,7 +56,7 @@ results = {"bTheta0":bTheta0.cpu(), "tol": tol}
 bThetainit = bTheta0 * initthetapref
 etaTs = [5e-1, 1e-2]
 #etaTsc = [300, 180]
-etaTsc = [120]
+etaTsc = [140]
 #------------------------------------------------------------------------------------
 print({"bTheta0_norm":bTheta0.cpu().norm().item(), "tol": tol})
 # The list to contain training errors 
@@ -66,7 +66,7 @@ CT = 2e-3
 results["CT"] = CT
 
 print(f"CT is {CT:>8.4g}")
-bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(2000, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(300, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
 LpTTvhat = LpTTBern(bThetahat, beta0, conDenfs, X, Y, R, prob) # n x m
 errT = torch.norm(bTheta0-bThetahat)
 results["errT"], results["bhatnorm"], results["minEigTT"] = errT.item(), bThetahat.norm().item(), LpTTvhat.min().item()

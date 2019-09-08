@@ -32,7 +32,7 @@ n = 200
 m = 200
 p = 100
 N = 20000
-prefix = n*m/10000
+prefix = 1 #n*m/10000
 initbetapref = 1 + (torch.rand(p)-1/2)/2 #[-0.75, 1.25]
 
 #------------------------------------------------------------------------------------
@@ -53,11 +53,11 @@ conDenfs = [fln, fln2, fln22]
 
 #------------------------------------------------------------------------------------
 # Termination  tolerance.
-Cb_adj = 0.01/4  # constant before beta algorithm lambda_beta , should be smaller than 1 
+Cb_adj = 0.01/2  # constant before beta algorithm lambda_beta , should be smaller than 1 
 #Cb_adj = 40/(100 * np.sqrt(100*np.log(100)/np.log(200))) # constant before beta algorithm lambda_beta
 tol = 1e-9
-etabs = [prefix*1e-1, prefix*5e-1]
-etabsc = [90]
+etabs = [prefix*1e-1, prefix*1e-1]
+etabsc = [10000]
 TrueParas = [beta0, bTheta0]
 # The list to contain output results
 params = {"bTheta0":bTheta0.cpu(), "tol": tol}

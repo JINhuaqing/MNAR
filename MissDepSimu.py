@@ -12,8 +12,8 @@ from confs import fln, fln2, fln22
 parser = argparse.ArgumentParser(description = "This script is to run demo simulation for NMAR project")
 parser.add_argument('-m', type=int, default=100, help = "Parameter m")
 parser.add_argument('-n', type=int, default=100, help = "Parameter n")
-parser.add_argument('-c', '--cuda', type=int, default=2, help = "GPU number")
-parser.add_argument('-num', '--numSimu', type=int, default=20, help = "number of simulation")
+parser.add_argument('-c', '--cuda', type=int, default=0, help = "GPU number")
+parser.add_argument('-num', '--numSimu', type=int, default=50, help = "number of simulation")
 parser.add_argument('-log', '--logoutput', type=int, default=0, help = "the log level of the function")
 args = parser.parse_args()
 #cudaid = args.cuda
@@ -73,12 +73,12 @@ numSimu = numSimu
 # eta, the learning rate of beta
 etabs = [prefix*1e-1, prefix*5e-1]
 etaTs = [5e-1, 1e-2]
-etabsc = [90]
-etaTsc = [120]
+etabsc = []
+etaTsc = []
 # Termination  tolerance.
-tols = [9e-6, 2.65e-6, 1.9e-6]
+tols = [1e-10, 2.65e-6, 1.9e-6]
 #tols = [2.65e-3, 1.9e-1]
-Cb, CT = 6, 2e-3
+Cb, CT = 8, 2e-3
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -115,7 +115,7 @@ for i in range(numSimu):
     #----------------------------------------------------------------------------------------------------
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(2000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(150, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])

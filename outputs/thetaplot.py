@@ -2,10 +2,11 @@ import numpy as np
 from pickle import load
 import matplotlib.pyplot as plt
 
-idx1, idx2 = 2, 3
-prefix1, prefix2 = 1, 2
-#with open(f"./Bern_theta_100_{prefix1}e-{idx1}_{prefix2}e-{idx2}.pkl", "rb") as f:
-with open(f"./Bern_theta_100_test.pkl", "rb") as f:
+eta = 1e-2
+CT = 2e-3
+m = 300
+with open(f"./Bern_theta_{m}_{CT:.0E}_{eta:.0E}.pkl", "rb") as f:
+#with open(f"./Bern_theta_100_test.pkl", "rb") as f:
     data = load(f)
 _, errs, likelis, thetahats = data
 
@@ -19,5 +20,5 @@ plt.plot(likelis, "b-.")
 plt.subplot(313)
 plt.title("norm of thetahat")
 plt.plot(thetahats, "g--")
-plt.savefig(f"./img/Bern_theta_100_test.jpg")
-#plt.savefig(f"./imgs/Bern_theta_100_{prefix1}e-{idx1}_{prefix2}e-{idx2}.jpg")
+#plt.savefig(f"./img/Bern_theta_100_test.jpg")
+plt.savefig(f"./img/Bern_theta_{m}_{CT:.0E}_{eta:.0E}.jpg")

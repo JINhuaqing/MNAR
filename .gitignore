@@ -3,4 +3,5 @@ plot_file/
 imgs*/
 *.swp
 outputs/*.pkl
+*.pkl
 __pycache__/
