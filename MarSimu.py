@@ -1,4 +1,5 @@
 from utilities import *
+from utilities_mar import MarNewBern
 import random
 import numpy as np
 import torch
@@ -17,6 +18,7 @@ parser.add_argument('-c', '--cuda', type=int, default=2, help = "GPU number")
 parser.add_argument('-num', '--numSimu', type=int, default=50, help = "number of simulation")
 parser.add_argument('-log', '--logoutput', type=int, default=0, help = "the log level of the function")
 args = parser.parse_args()
+#cudaid = args.cuda
 m = args.m
 n = args.n
 p = args.p
@@ -49,7 +51,7 @@ m = m
 p = p
 N = 20000
 
-initbetapref = 1 + (torch.rand(p)-1/2)  #[0.75, 1.25]
+initbetapref = 1 + (torch.rand(p)-1/2)  #[-0.75, 1.25]
 initthetapref = 1 + (torch.rand(n, m)-1/2)/2
 prefix = n*m/10000
 #------------------------------------------------------------------------------------
@@ -69,16 +71,19 @@ conDenfs = [fln, fln2, fln22]
 
 
 #------------------------------------------------------------------------------------
+# The number of times to do random grid search
 numSimu = numSimu 
+# eta = 1/(5*0.75*m*p)
 # eta, the learning rate of beta
-etabs = [prefix*1.2e-0/2] # 1.2e-0
-etaTs = [1e-2*2] # 1e-2
+etabs = [prefix*1e-1]
+#etaTs = [5e-1, 1e-2]
+etaTs = [5e-2]
 etabsc = []
 etaTsc = []
 # Termination  tolerance.
-tols = [2.7e-4, 2.65e-6, 1.9e-6] # [0.5, 1.5]
-tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
-Cb, CT = 8, 2e-3
+tols = [2.7e-4, 2.65e-6, 1.9e-6]
+tols = [2.7e-14, 2.65e-9, 1.9e-9]
+Cb, CT = 20, 2e-3
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -116,7 +121,7 @@ for i in range(numSimu):
     #----------------------------------------------------------------------------------------------------
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(265, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = MarNewBern(570, X, Y, R, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])
@@ -139,7 +144,7 @@ for i in range(numSimu):
         )
 
 # Save the output
-f = open(f"./outputs/Simulation_p{p}_{m}.pkl", "wb")
+f = open(f"./outputs/Mar_Simulation_p{p}_{m}.pkl", "wb")
 pickle.dump([params, results, Errs, EstParas], f)
 f.close()
 

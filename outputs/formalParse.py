@@ -3,13 +3,14 @@ from pickle import load
 import matplotlib.pyplot as plt
 from pathlib import Path
 
-num = 175
+p = 200
+num = 200
 root = Path('./')
-imgdir = root/f"SimuImgs{num}"
+imgdir = root/f"Mar_SimuImgs{num}"
 if not imgdir.is_dir():
     imgdir.mkdir()
 
-with open(f"Simulation_demo{num}.pkl", "rb") as f:
+with open(f"Mar_Simulation_p{p}_{num}.pkl", "rb") as f:
     data = load(f)
 
 params, results, errss = data
@@ -18,7 +19,6 @@ resarr = np.array(results)
 #print(resarr[:, [2, 5]])
 print(np.mean(resarr, axis=0)[[2, 5]])
 
-raise SystemExit
 for errs in errss:
     Berrs, Terrs, betas, thetas, likelis = errs
     plt.subplots_adjust(hspace=0.5)

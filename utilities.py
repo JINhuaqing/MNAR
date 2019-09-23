@@ -862,6 +862,12 @@ def genR(Y, type="Linear", inp=6.5):
         probs = Normal(0, 1).cdf(Thre)
         ranUnif = torch.rand_like(probs)
         R = probs >= ranUnif
+    elif "fixed".startswith(type):
+        probs = torch.zeros(Y.shape)
+        probs[Y==1] = 0.05
+        probs[Y==0] = 0.45
+        ranUnif = torch.rand_like(probs)
+        R = probs <= ranUnif
     else:
         raise TypeError("Wrong dependence type!")
     return R.to(dtorchdtype)
