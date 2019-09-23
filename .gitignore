@@ -2,6 +2,6 @@
 plot_file/
 imgs*/
 *.swp
-outputs/*.pkl
-*.pkl
+outputs/PKL_OrgMissing/*.pkl
+#*.pkl
 __pycache__/
