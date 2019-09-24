@@ -175,9 +175,11 @@ if typ in ["MNARxBd", "MNARxMAR", "AjMNAR", "MNAR"]:
         X = genXdis(n, m, p, type="Bern", prob=prob) 
         Y = genYlogit(X, bTheta0, beta0)
         alpha0t = Alpha_0T(Y, X, bTheta0, beta0, inp)
-        alpha0t = 1
+        print(alpha0t, "T")
+        #alpha0t = 1
         alpha0b = Alpha_0b(Y, X, bTheta0, beta0, inp)
-        alpha0b = 1
+        #alpha0b = 1
+        print(alpha0b, "b")
         errbub = Errbub(a, c0, m, n, p)
         errtub = ErrTub(a, m, n)
         errbubs.append(errbub)
