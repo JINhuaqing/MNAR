@@ -82,8 +82,8 @@ def prefixTheta(n, m, p, r, alpha0t):
     return 1/itm
 
 
-#def Errbub(Y, X, bTheta, beta, inp):
-#    alpha0b = Alpha_0b(Y, X, bTheta, beta, inp)
+#def Errbub(Y, X, bTheta, beta):
+#    alpha0b = Alpha_0b(Y, X, bTheta, beta)
 #    alpha0b = 1
 #    sigma1f = Sigma_1F(Y, X, bTheta, beta)
 #    n, m, p = X.shape
@@ -100,8 +100,8 @@ def Errbub(a, c0, m, n, p):
     return itm1*itm2
 
 
-#def ErrTub(Y, X, bTheta, beta, inp):
-#    alpha0t = Alpha_0T(Y, X, bTheta, beta, inp)
+#def ErrTub(Y, X, bTheta, beta):
+#    alpha0t = Alpha_0T(Y, X, bTheta, beta)
 #    alpha0t = 1
 #    sigmadf = Sigma_dF(Y, X, bTheta, beta)
 #    n, m, p = X.shape
@@ -174,10 +174,10 @@ if typ in ["MNARxBd", "MNARxMAR", "AjMNAR", "MNAR"]:
         bTheta0 = torch.tensor(params["bTheta0"])
         X = genXdis(n, m, p, type="Bern", prob=prob) 
         Y = genYlogit(X, bTheta0, beta0)
-        alpha0t = Alpha_0T(Y, X, bTheta0, beta0, inp)
+        alpha0t = Alpha_0T(Y, X, bTheta0, beta0)
         print(alpha0t, "T")
         #alpha0t = 1
-        alpha0b = Alpha_0b(Y, X, bTheta0, beta0, inp)
+        alpha0b = Alpha_0b(Y, X, bTheta0, beta0)
         #alpha0b = 1
         print(alpha0b, "b")
         errbub = Errbub(a, c0, m, n, p)
