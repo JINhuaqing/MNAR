@@ -805,12 +805,16 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
 
 
 # To generate bTheta_0, (Grand-truth of bTheta)
-def genbTheta(n, m, rank=4):
+def genbTheta(n, m, rank=4, sigVs=None):
     #bTheta = torch.rand(n, m) * 7
     bTheta = torch.randn(n, m) * 7
     U, S, V = torch.svd(bTheta)
     idx = torch.randperm(S.shape[0])[:rank]
-    bTheta = U[:, idx].matmul(torch.diag(torch.ones(rank)*16)).matmul(V[:, idx].transpose(1, 0))
+    if sigVs is not None:
+        sigVs = torch.tensor(sigVs, dtype=dtorchdtype)
+        bTheta = U[:, idx].matmul(torch.diag(sigVs)).matmul(V[:, idx].transpose(1, 0))
+    else:
+        bTheta = U[:, idx].matmul(torch.diag(torch.ones(rank)*16)).matmul(V[:, idx].transpose(1, 0))
     return bTheta 
 
 # To generate beta_0, (Grand-truth of beta), never used
@@ -850,7 +854,7 @@ def genYlogit(X, bTheta, beta):
 
 
 # generate missing matrix R under linear and quadratic relation.
-def genR(Y, type="Linear", inp=6.5):
+def genR(Y, type="Linear", a=2, b=0.4, inp=6.5):
     type = type.lower()
     if "linear".startswith(type):
         Thre = Y  - inp#- 8 #- 1/2 # -  7 # -1/2 #+2
@@ -858,10 +862,10 @@ def genR(Y, type="Linear", inp=6.5):
         ranUnif = torch.rand_like(probs)
         R = probs <= ranUnif
     elif "quadratic".startswith(type):
-        Thre = Y**2 - 2*Y - 0.4
+        Thre = Y**2 + a*Y + b
         probs = Normal(0, 1).cdf(Thre)
         ranUnif = torch.rand_like(probs)
-        R = probs >= ranUnif
+        R = probs <= ranUnif
     elif "fixed".startswith(type):
         probs = torch.zeros(Y.shape)
         probs[Y==1] = 0.05

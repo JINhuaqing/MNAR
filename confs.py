@@ -1,7 +1,8 @@
+import numpy as np
 from scipy.stats import norm as STN
 import torch
 
-sigma = 0.5
+sigma = 0.1
 a, b = -10, 10 
 
 def torchstnpdf(y):
