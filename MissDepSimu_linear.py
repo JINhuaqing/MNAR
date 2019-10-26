@@ -10,12 +10,12 @@ import pprint
 from confs import fn, fn2, fn22
 
 parser = argparse.ArgumentParser(description = "This script is to run demo simulation for NMAR project")
-parser.add_argument('-m', type=int, default=140, help = "Parameter m")
-parser.add_argument('-n', type=int, default=140, help = "Parameter n")
+parser.add_argument('-m', type=int, default=100, help = "Parameter m")
+parser.add_argument('-n', type=int, default=100, help = "Parameter n")
 parser.add_argument('-p', type=int, default=100, help = "Parameter p")
 parser.add_argument('-c', '--cuda', type=int, default=0, help = "GPU number")
 parser.add_argument('-num', '--numSimu', type=int, default=50, help = "number of simulation")
-parser.add_argument('-log', '--logoutput', type=int, default=1, help = "the log level of the function")
+parser.add_argument('-log', '--logoutput', type=int, default=2, help = "the log level of the function")
 args = parser.parse_args()
 m = args.m
 n = args.n
@@ -76,14 +76,9 @@ conDenfs = [fn, fn2, fn22]
 
 #------------------------------------------------------------------------------------
 numSimu = numSimu 
-# eta, the learning rate of beta
-etabs = [prefix*1e-2] 
-etaTs = [5e-1] 
-etabsc = []
-etaTsc = []
 # Termination  tolerance.
 tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
-Cb, CT = 500, 5e-2
+Cb, CT = 100, 1e-0
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -92,10 +87,6 @@ params["p"] = p
 params["N"] = N
 params["Xtype"] = "Bernoulli"
 params["Y|X_type"] = "Normal"
-params["etaTs"] =  etaTs
-params["etaTsc"] =  etaTsc
-params["etabs"] =  etabs
-params["etabsc"] =  etabsc
 params["numSimu"] = numSimu
 params["MissRate"] = []
 
@@ -123,7 +114,7 @@ for i in range(numSimu):
     #----------------------------------------------------------------------------------------------------
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(2650, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis, etass = NewBern(2650, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])

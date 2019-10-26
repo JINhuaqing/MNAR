@@ -13,9 +13,9 @@ parser = argparse.ArgumentParser(description = "This script is to run demo simul
 parser.add_argument('-m', type=int, default=100, help = "Parameter m")
 parser.add_argument('-n', type=int, default=100, help = "Parameter n")
 parser.add_argument('-p', type=int, default=200, help = "Parameter p")
-parser.add_argument('-c', '--cuda', type=int, default=2, help = "GPU number")
+parser.add_argument('-c', '--cuda', type=int, default=0, help = "GPU number")
 parser.add_argument('-num', '--numSimu', type=int, default=50, help = "number of simulation")
-parser.add_argument('-log', '--logoutput', type=int, default=0, help = "the log level of the function")
+parser.add_argument('-log', '--logoutput', type=int, default=2, help = "the log level of the function")
 args = parser.parse_args()
 m = args.m
 n = args.n
@@ -71,10 +71,8 @@ conDenfs = [fln, fln2, fln22]
 #------------------------------------------------------------------------------------
 numSimu = numSimu 
 # eta, the learning rate of beta
-etabs = [prefix*1.2e-0/2] # 1.2e-0
-etaTs = [1e-2*2] # 1e-2
-etabsc = []
-etaTsc = []
+etabinit = 1e-4
+etaTinit = 1e-4
 # Termination  tolerance.
 tols = [2.7e-4, 2.65e-6, 1.9e-6] # [0.5, 1.5]
 tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
@@ -87,10 +85,6 @@ params["p"] = p
 params["N"] = N
 params["Xtype"] = "Bernoulli"
 params["Y|X_type"] = "logistic"
-params["etaTs"] =  etaTs
-params["etaTsc"] =  etaTsc
-params["etabs"] =  etabs
-params["etabsc"] =  etabsc
 params["numSimu"] = numSimu
 params["MissRate"] = []
 
@@ -116,7 +110,7 @@ for i in range(numSimu):
     #----------------------------------------------------------------------------------------------------
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = NewBern(265, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabs=etabs, etabsc=etabsc, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis, etass = NewBern(265, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, etabinit=etabinit, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaTinit=etaTinit)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])

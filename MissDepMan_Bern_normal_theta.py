@@ -50,25 +50,22 @@ conDenfs = [fn, fn2, fn22]
 #------------------------------------------------------------------------------------
 # Termination  tolerance.
 tol = 1e-10
+tol = 0
 TrueParas = [beta0, bTheta0]
 # The list to contain output results
 results = {"bTheta0":bTheta0.cpu(), "tol": tol}
 # initial value of bTheta
 bThetainit = bTheta0 * initthetapref
-etaTs = [5e-1]
-#etaTsc = [300, 180]
-#etaTsc = [140]
-etaTsc = []
 #------------------------------------------------------------------------------------
 print({"bTheta0_norm":bTheta0.cpu().norm().item(), "tol": tol})
 # The list to contain training errors 
 
 #------------------------------------------------------------------------------------
-CT = 5e-2 
+CT = 4e-1 * 0.5
 results["CT"] = CT
 
 print(f"CT is {CT:>8.4g}")
-bThetahat, numI, Terrs, Likelis, bThetahats = BthetaBern(3100, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1, etaTs=etaTs, etaTsc=etaTsc)
+bThetahat, numI, Terrs, Likelis, bThetahats, _ = BthetaBern(3100, X, Y, R, conDenfs, TrueParas=TrueParas, CT=CT, tol=tol, log=2, prob=prob, bThetainit=bThetainit, ErrOpts=1)
 #LpTTvhat = LpTTBern(bThetahat, beta0, conDenfs, X, Y, R, prob) # n x m
 errT = torch.norm(bTheta0-bThetahat)
 results["errT"], results["bhatnorm"] = errT.item(), bThetahat.norm().item()

@@ -53,16 +53,13 @@ conDenfs = [fln, fln2, fln22]
 
 #------------------------------------------------------------------------------------
 # Termination  tolerance.
-Cb_adj = 0.01/2  # constant before beta algorithm lambda_beta , should be smaller than 1 
+Cb_adj = 0.01/2 * 5  # constant before beta algorithm lambda_beta , should be smaller than 1 
 #Cb_adj = 40/(100 * np.sqrt(100*np.log(100)/np.log(200))) # constant before beta algorithm lambda_beta
 tol = 1e-9
-etabs = [prefix*1e-1, prefix*1e-1]
-etabsc = [10000]
 TrueParas = [beta0, bTheta0]
 # The list to contain output results
 params = {"bTheta0":bTheta0.cpu(), "tol": tol}
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tol": tol}
-params["etabsc"] = etabsc
 params["n"] = n
 params["m"] = m
 params["p"] = p
@@ -70,8 +67,6 @@ params["Cb"] = Cb_adj
 params["N"] = N
 params["Xtype"] = "Bernoulli"
 params["Y|X_type"] = "logistic"
-params["etabs"] =  etabs
-params["etabsc"] =  etabsc
 params["MissRate"] = MissRate.item()
 pprint.pprint(params)
 # initial value of bTheta
@@ -83,8 +78,9 @@ results = {}
 print(f"Cb_adj is {Cb_adj:>8.4g}")
 # adjust constant of Lambda_beta
 Cb = Cb_adj * m * np.sqrt(n*np.log(p)/np.log(m+n)) # constant before both algorithm lambda_beta 
-betahat, numI, Berrs, Likelis, betahats = BetaBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, tol=tol, log=2, prob=prob, betainit=betainit, ErrOpts=1, etabs=etabs, etabsc=etabsc)
+betahat, numI, Berrs, Likelis, betahats, _ = BetaBern(1000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, tol=tol, log=2, prob=prob, betainit=betainit, ErrOpts=1)
 errb = torch.norm(beta0-betahat)
+fsadfdsafsda
 results["errb"], results["betanorm"] = errb.item(), betahat.norm().item()
 results["numI"], results["Cb"] = numI, Cb
 print(

@@ -458,40 +458,6 @@ def missdepLpbLoop(bTheta, beta, conDenfs, X, Y, R, sXs):
     return -results/m/n
 
 
-# Pyspark version of missdepLpb, too slow, useless
-def LpbSpark(bTheta, beta, conDenfs, X, Y, R, sXs, sc):
-    n, m, p = X.shape
-    _, N = sXs.shape
-    f, f2, _ = conDenfs
-    betaX = torch.matmul(X, beta) # n x m
-    TbX = bTheta + betaX # n x m
-
-    itm1 = (f2(Y, TbX)/(f(Y, TbX)+seps)).unsqueeze(dim=2) * X # n x m x p 
-
-    
-    Ybc = sc.broadcast(Y)
-    itm1bc = sc.broadcast(itm1)
-    sXsbc = sc.broadcast(sXs)
-    bThetabc = sc.broadcast(bTheta)
-
-    def func(x):
-        ii, jj = x
-        Yij = Ybc.value[ii, jj]
-        bThetaij = bThetabc.value[ii, jj]
-        incre = torch.zeros(p)
-        if R[ii, jj]:
-            itm1ij = itm1bc.value[ii, jj]
-            arg1 = Yij + torch.zeros(N)
-            arg2 = bThetaij + beta.matmul(sXsbc.value)
-            itm2ijden = f(arg1, arg2).mean() + seps
-            itm2ijnum = (f2(arg1, arg2) * sXsbc.value).mean(dim=-1)
-            itm2ij = itm2ijnum/itm2ijden
-            incre = itm1ij - itm2ij
-        return incre
-    RDDidx = sc.range(n).cartesian(sc.range(m)).filter(lambda x: R[x[0], x[1]])
-    res = RDDidx.map(func)
-    results = res.sum()
-    return -results/m/n
 
 
 # Compute the exact value of first derivative of L w.r.t beta when X is normal and Y|X is normal 
@@ -600,7 +566,7 @@ def missdepLpbbLoop(bTheta, beta, conDenfs, X, Y, R, sXs):
 
 
 #----------------------------------------------------------------------------------------------------------------
-# Compute the value of L w.r.t beta with MCMC method for any distributions X.
+# Compute the value of L with MCMC method for any distributions X.
 def missdepL(bTheta, beta, f, X, Y, R, sXs):
     """
     bTheta: the matrix parameter, n x m
@@ -663,7 +629,7 @@ def missdepLLoop(bTheta, beta, f, X, Y, R, sXs):
 
 
 
-# Compute the exact value of L w.r.t beta when X is normal and  Y|X is normal
+# Compute the exact value of L when X is normal and  Y|X is normal
 def Lnormal(bTheta, beta,  X, Y, R, sigmax=0.5, sigma=0.5):
     """
     bTheta: the matrix parameter, n x m
@@ -693,7 +659,7 @@ def Lnormal(bTheta, beta,  X, Y, R, sigmax=0.5, sigma=0.5):
     return -itm.mean(dim=[0, 1])
 
 
-# Compute the exact value of L w.r.t beta when X is Bernoulli
+# Compute the exact value of L when X is Bernoulli
 def LBern(bTheta, beta, f, X, Y, R, prob=0.5):
     """
     bTheta: the matrix parameter, n x m
@@ -805,9 +771,11 @@ def genXdis(*args, type="mvnorm", sigmax=0.5, prob=None):
 
 
 # To generate bTheta_0, (Grand-truth of bTheta)
-def genbTheta(n, m, rank=4, sigVs=None):
+def genbTheta(n, m, rank=None, sigVs=None):
     #bTheta = torch.rand(n, m) * 7
     bTheta = torch.randn(n, m) * 7
+    if rank is None:
+        rank = len(sigVs)
     U, S, V = torch.svd(bTheta)
     idx = torch.randperm(S.shape[0])[:rank]
     if sigVs is not None:
@@ -883,6 +851,70 @@ def genR(Y, type="Linear", a=2, b=0.4, inp=6.5):
 def ParaDiff(Olds, News):
     errs = torch.tensor([torch.norm(Olds[i]-News[i]) for i in range(2)])
     return errs.max()
+
+#----------------------------------------------------------------------------------------------------------------
+# The functions for computing the adaptive learning rates
+def Gbetafn(betaOld, wtbetaOld, bThetaOld, LpbOld, Lamb):
+    diffbeta = betaOld - wtbetaOld
+    itm1 = (LpbOld * diffbeta).sum()
+    itm2 = Lamb * (betaOld.abs().sum() - wtbetaOld.abs().sum())
+    return itm1 + itm2
+
+def wtbetafn(LpbOld, QOld, Lamb):
+    p = LpbOld.shape[0]
+    wtbetat = torch.zeros(p)
+    itmax = LpbOld.abs().argmax().item()
+    if LpbOld.abs().max() > Lamb:
+        wtbetat[itmax] = - QOld*torch.sign(LpbOld[itmax]) 
+    return wtbetat
+
+# def wtbetafn(LpbOld, QOld, Lamb):
+#     p = LpbOld.shape[0]
+#     wtbetatm1 = torch.ones(p) * 0.02
+#     diff = torch.tensor(10.0)
+#     flag = 1
+#     while diff > 1e-3:
+#         objfv = LpbOld + Lamb * torch.sign(wtbetatm1)
+#         itmax = objfv.abs().argmax().item()
+#         st = torch.zeros(p)
+#         st[itmax] = - QOld*torch.sign(objfv[itmax]) 
+#         wtbetat = (1- 1/(flag+2)) * wtbetatm1 + (1/(flag+2)) * st
+#         diff = (wtbetat-wtbetatm1).norm()
+#         wtbetatm1 = wtbetat
+#         flag += 1
+#         #print(diff, "------", wtbetat, Lamb * torch.sign(wtbetatm1))
+#     #    print(diff)
+#     return wtbetat
+
+def etabetat(betaOld, bThetaOld, LpbOld, Lamb, QOld, ajr=0.001):
+    wtbetaOld = wtbetafn(LpbOld, QOld, Lamb)
+    Gbetav = Gbetafn(betaOld, wtbetaOld, bThetaOld, LpbOld, Lamb)
+    etatv = ((betaOld - wtbetaOld)**2).sum()/Gbetav
+    return etatv.item() * ajr
+
+def GThetafn(bThetaOld, wtbThetaOld, betaNew, LpTNew, LamT):
+    diffTheta = bThetaOld - wtbThetaOld
+    itm1 = (LpTNew * diffTheta).sum()
+    itm2 = LamT * (bThetaOld.norm(p="nuc") - wtbThetaOld.norm(p="nuc"))
+    return itm1 + itm2
+
+def wtThetafn(LpTNew, ROld, LamT):
+    svdres = torch.svd(LpTNew)
+    n, m = LpTNew.shape
+    alpha1, u, v = svdres.S.max(), svdres.U[:, 0].unsqueeze(dim=-1), svdres.V[:, 0].unsqueeze(dim=-1)
+    if alpha1 > LamT:
+        wtbThetaOld = - torch.min(ROld, LamT) * u.matmul(v.t())
+    else:
+        wtbThetaOld = torch.zeros(n, m, dtype=dtorchdtype)
+    return wtbThetaOld
+
+def etaThetat(betaNew, bThetaOld, LpTNew, LamT, ROld, ajr=0.5):
+    wtbThetaOld = wtThetafn(LpTNew, ROld, LamT)
+    GThetav = GThetafn(bThetaOld, wtbThetaOld, betaNew, LpTNew, LamT)
+    eta1tv = ((wtbThetaOld - bThetaOld)**2).sum()/GThetav
+    #print(((wtbThetaOld - bThetaOld)**2).sum(), GThetav, (wtbThetaOld - bThetaOld).norm())
+    return ajr*eta1tv.item()
+    
 
 #----------------------------------------------------------------------------------------------------------------
 
@@ -1223,7 +1255,7 @@ def MCGDBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, eta=0.001, Cb=5, CT=0.
 #----------------------------------------------------------------------------------------------------------------
 
 # New algorithm  to optimize the bTheta when X is Bernoulli 
-def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etaTs=None, etaTsc=None):
+def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -1241,10 +1273,12 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     """
     n, m, p = X.shape
     f, f2, f22 = conDenfs
+    Lcon = -20
     # To contain the training errors of bTheta, respectively.
     Terrs = []
     Likelis = []
     bThetahats = []
+    etaTs = []
 
     # The true parameters
     beta0, bTheta0 = TrueParas
@@ -1256,29 +1290,16 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
     # Under Cb and CT, compute the Lambda_beta and Lambda_bTheta
     LamT = LamTfn(CT, n, m, p)
 
-    if etaTs is None:
-        LpTTv0 = LpTTBern(bTheta0, beta0, conDenfs, X, Y, R, prob) # n x m
-        # the spectral norm of a diag matrix is mat.abs().max()
-        etaT = LpTTv0.abs().max().item()
-    else:
-        etaTs = sorted(etaTs, reverse=1)
-        etaTsc = sorted(etaTsc, reverse=1)
-        etaT = etaTs.pop()
     # The log output, nothing to do with algorithm.
     if log>=0:
-        tb1 = PrettyTable(["Basic Value", "LamT", "etaT", "LamT/etaT", "norm of bTheta0"])
-        tb1.add_row(["",  f"{LamT.item():>5.3g}", f"{etaT:>5.3g}", f"{LamT.norm()/etaT:>5.3g}", f"{bTheta0.norm().item():>8.3g}"])
+        tb1 = PrettyTable(["Basic Value", "LamT",  "norm of bTheta0"])
+        tb1.add_row(["",  f"{LamT.item():>5.3g}", f"{bTheta0.norm().item():>8.3g}"])
         print(tb1)
     # The loss, i.e. L +  Lamdab_bTheta * ||bTheta||
     Losses = []
 
     # Starting optimizing.
     for t in range(MaxIters):
-        if (etaTsc is not None) and (len(etaTsc) > 0):
-            if t >= etaTsc[-1]:
-                if len(etaTs) > 0:
-                    etaT = etaTs.pop()
-                etaTsc.pop()
         #--------------------------------------------------------------------------------
         LvNow = LBern(bThetaOld, beta0,  f, X, Y, R, prob)
         # Add L with penalty items.
@@ -1288,9 +1309,12 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         #--------------------------------------------------------------------------------
         # Update bTheta 
         LpTvOld = LpTBern(bThetaOld, beta0, conDenfs, X, Y, R, prob)
-        svdres = torch.svd(bThetaOld-LpTvOld/etaT)
+        ROld = (LossNow - Lcon)/LamT
+        etaTOld = etaThetat(beta0, bThetaOld, LpTvOld, LamT, ROld)
+        etaTOld = 50000
+        svdres = torch.svd(bThetaOld-LpTvOld*etaTOld)
         U, S, V =  svdres.U, svdres.S, svdres.V
-        softS = (S-LamT/etaT).clamp_min(0)
+        softS = (S-LamT*etaTOld).clamp_min(0)
         bThetaNew = U.matmul(torch.diag(softS)).matmul(V.t())
 
         #--------------------------------------------------------------------------------
@@ -1306,13 +1330,14 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
             Terrs.append((bTheta0-bThetaOld).norm().item())
             Likelis.append(LvNow.item())
             bThetahats.append(bThetaOld.norm().item())
+            etaTs.append(etaTOld)
         if log==1:
             tb2 = PrettyTable(["Iteration", "etaT", "Loss", "Error of Theta"])
-            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
+            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaTOld:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
             tb2 = PrettyTable(["Iteration", "etaT", "Loss", "-likelihood",  "Error of Theta", "reCh", "Norm of Thetat", "Norm of difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.6f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaTOld:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.6f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
                 f"{reCh:>8.4g}",  f"{bThetaNew.norm().item():>8.3f}", f"{(bThetaOld-bThetaNew).norm().item():>8.3g}"])
             print(tb2)
         #--------------------------------------------------------------------------------
@@ -1324,16 +1349,17 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         if (bThetaOld-bThetaNew).norm() < tol:
             break
         #--------------------------------------------------------------------------------
+        print(softS)
         # Change New to Old for starting next iteration
         bThetaOld = bThetaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:
-        return bThetaOld, t+1, Terrs, Likelis, bThetahats
+        return bThetaOld, t+1, Terrs, Likelis, bThetahats, etaTs
     else:
         return bThetaOld, t+1
 
 # New algorithm  to optimize the bTheta when X is Bernoulli 
-def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=None, tol=1e-4, prob=0.1, ErrOpts=0, etabs=None, etabsc=None):
+def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=None, tol=1e-4, prob=0.1, ErrOpts=0):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -1351,25 +1377,24 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
     """
     n, m, p = X.shape
     f, f2, _ = conDenfs
+    Lcon = -100
     numExact = 14
     # To contain the training errors of bTheta, respectively.
     Berrs = []
     Likelis = []
     betahats = []
+    etabs = []
 
     # The true parameters
     beta0, bTheta0 = TrueParas
-    # Initial the value of beta
-    betaOld = torch.rand(p) if betainit is None else betainit
     # the relative change of Loss, i.e. |L_k - L_k+1|/max(|L_k|, |L_k+1|, 1), here the L_k and L_k+1 are with penalty items.
     reCh = 1
+
+    betaOld = torch.rand(p) if betainit is None else betainit
 
     # Under Cb, compute the Lambda_beta 
     Lamb = Lambfn(Cb, n, m)
 
-    etabs = sorted(etabs)
-    etabsc = sorted(etabsc, reverse=1)
-    etab = etabs.pop()
     # The log output, nothing to do with algorithm.
     if log>=0:
         tb1 = PrettyTable(["Basic Value", "Lamb", "norm of beta0"])
@@ -1380,16 +1405,9 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
 
     # Starting optimizing.
     for t in range(MaxIters):
-        #print(betaOld)
-        if len(etabsc) > 0:
-            if t >= etabsc[-1]:
-                if len(etabs) > 0:
-                    etab = etabs.pop()
-                etabsc.pop()
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
-        print(NumN0Old)
         #--------------------------------------------------------------------------------
         # compute the loss function (with penalty items) under betaOld and bThetaOld
 
@@ -1401,17 +1419,25 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
             LvNow = LBern(bTheta0, betaOld, f, X, Y, R, prob)
         # Add L with penalty items.
         LossNow = missdepLR(LvNow, bTheta0, betaOld, 0, Lamb)
+        QOld = (LossNow - Lcon)/Lamb
+        print("F", LossNow-Lcon)
         Losses.append(LossNow.item())
 
         #--------------------------------------------------------------------------------
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            betaNewRaw = betaOld - etab * missdepLpb(bTheta0, betaOld, conDenfs, X, Y, R, sXs)
+            LpbvOld = missdepLpb(bTheta0, betaOld, conDenfs, X, Y, R, sXs)
         else:
-            betaNewRaw = betaOld - etab * LpbBern(bTheta0, betaOld, conDenfs, X, Y, R, prob)
+            LpbvOld = LpbBern(bTheta0, betaOld, conDenfs, X, Y, R, prob)
+        # compute the learning rate of beta
+        etabOld = etabetat(betaOld, bTheta0, LpbvOld, Lamb, QOld)
+        etabOld = 100
+        if len(etabs) >= 1 and etabOld >= etabs[-1]:
+            etabOld = etabs[-1]
+        betaNewRaw = betaOld - etabOld * LpbvOld
         # Using rho function to soften updated beta
-        betaNew = SoftTO(betaNewRaw, etab*Lamb)
+        betaNew = SoftTO(betaNewRaw, etabOld*Lamb)
         #--------------------------------------------------------------------------------
         # compute the relative change of Loss
         if t >= 1:
@@ -1424,13 +1450,14 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
             Berrs.append((beta0-betaOld).norm().item())
             Likelis.append(LvNow.item())
             betahats.append(betaOld.norm().item())
+            etabs.append(etabOld)
         if log==1:
             tb2 = PrettyTable(["Iteration", "etab", "Loss", "Error of beta"])
-            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}"])
+            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etabOld:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
             tb2 = PrettyTable(["Iteration", "etab", "Loss", "-likelihood",  "Error of beta", "reCh", "Norm of betat", "Norm of difference"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.5g}", f"{torch.norm(beta0-betaNew).item():>8.6f}",
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etabOld:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.5g}", f"{torch.norm(beta0-betaNew).item():>8.6f}",
                 f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>8.5g}"])
             print(tb2)
         #--------------------------------------------------------------------------------
@@ -1443,16 +1470,17 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
             break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
+        print(betaOld)
         betaOld = betaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:
-        return betaOld, t+1, Berrs, Likelis, betahats
+        return betaOld, t+1, Berrs, Likelis, betahats, etabs
     else:
         return betaOld, t+1
 
 
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli 
-def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etabs=None, etabsc=None, etaTs=None, etaTsc=None):
+def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -1469,20 +1497,21 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
     tol: terminate tolerace.
     prob: sucessful probability of entry of X
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
-    etab: the learning rate of beta
-    etaTs: 1/the learning rate of btheta
-    etaTsc: etaTs increasing schedule
+    etabinit: The initial learning rate of beta
+    etaTinit: The initial learning rate of btheta
     """
     n, m, p = X.shape
     f, f2, f22 = conDenfs
     tol, tolb, tolT = tols
     numExact = 14
+    Lcon = -10
     # To contain the training errors of bTheta and beta, respectively.
     Terrs = []
     Berrs = []
     Likelis = []
     bThetahats = []
     betahats = []
+    etass = [[100, 1e10]]
 
     # The true parameters
     beta0, bTheta0 = TrueParas
@@ -1496,17 +1525,6 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
     LamT = LamTfn(CT, n, m, p)
     Lamb = Lambfn(Cb, n, m)
 
-    if etaTs is None:
-        LpTTv0 = LpTTBern(bTheta0, beta0, conDenfs, X, Y, R, prob) # n x m
-        # the spectral norm of a diag matrix is mat.abs().max()
-        etaT = LpTTv0.abs().max().item()
-    else:
-        etaTs = sorted(etaTs, reverse=1)
-        etaTsc = sorted(etaTsc, reverse=1)
-        etaT = etaTs.pop()
-    etabs = sorted(etabs)
-    etabsc = sorted(etabsc, reverse=1)
-    etab = etabs.pop()
     # The log output, nothing to do with algorithm.
     if log>=0:
         tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "norm of beta0", "norm of bTheta0"])
@@ -1517,16 +1535,6 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
 
     # Starting optimizing.
     for t in range(MaxIters):
-        if len(etabsc) > 0:
-            if t >= etabsc[-1]:
-                if len(etabs) > 0:
-                    etab = etabs.pop()
-                etabsc.pop()
-        if (etaTsc is not None) and (len(etaTsc) > 0):
-            if t >= etaTsc[-1]:
-                if len(etaTs) > 0:
-                    etaT = etaTs.pop()
-                etaTsc.pop()
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
@@ -1541,31 +1549,44 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
             LvNow = LBern(bThetaOld, betaOld, f, X, Y, R, prob)
         # Add L with penalty items.
         LossNow = missdepLR(LvNow, bThetaOld, betaOld, LamT, Lamb)
+        QOld = (LossNow - Lcon)/Lamb
         Losses.append(LossNow.item())
 
         #--------------------------------------------------------------------------------
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            betaNewRaw = betaOld - etab * missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
+            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
         else:
-            betaNewRaw = betaOld - etab * LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
+            LpbvOld = LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
+        # compute the learning rate of beta
+        etabOld = etabetat(betaOld, bThetaOld, LpbvOld, Lamb, QOld)
+        etabOld = 100
+        betaNewRaw = betaOld - etabOld * LpbvOld
         # Using rho function to soften updated beta
-        betaNew = SoftTO(betaNewRaw, etab*Lamb)
+        betaNew = SoftTO(betaNewRaw, etabOld*Lamb)
 
         #--------------------------------------------------------------------------------
-        # To get the number of nonzeros entry in betaOld
+        # To get the number of nonzeros entry in betaNew
         NumN0New = p - (betaNew.abs()==0).sum().to(dtorchdtype)
 
         #--------------------------------------------------------------------------------
         # Update bTheta 
         if NumN0New > numExact:
             LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, sXs)
+            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, sXs)
         else:
             LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs, X, Y, R, prob)
-        svdres = torch.svd(bThetaOld-LpTvOld/etaT)
+            LvNew = LBern(bThetaOld, betaNew, f, X, Y, R, prob)
+        LossNew = missdepLR(LvNew, bThetaOld, betaNew, LamT, Lamb)
+        ROld = (LossNew - Lcon)/LamT
+        etaTOld = etaThetat(betaNew, bThetaOld, LpTvOld, LamT, ROld)
+        etaTOld = 50000
+        if len(etass) >= 1 and etaTOld >= etass[-1][-1]:
+            etaTOld = etass[-1][-1]
+        svdres = torch.svd(bThetaOld-LpTvOld*etaTOld)
         U, S, V =  svdres.U, svdres.S, svdres.V
-        softS = (S-LamT/etaT).clamp_min(0)
+        softS = (S-LamT*etaTOld).clamp_min(0)
         bThetaNew = U.matmul(torch.diag(softS)).matmul(V.t())
 
         #--------------------------------------------------------------------------------
@@ -1583,14 +1604,17 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
             Likelis.append(LvNow.item())
             bThetahats.append(bThetaOld.norm().item())
             betahats.append(betaOld.norm().item())
+            etass.append([etabOld, etaTOld])
         if log==1:
             tb2 = PrettyTable(["Iteration", "etaT", "Loss", "Error of beta", "Error of Theta"])
-            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
+            tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaTOld:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "etaT", "etab", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference", "L0 norm of betahat"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.6g}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
-                f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>10.3g}", f"{(bThetaOld-bThetaNew).norm().item():>10.3g}", f"{NumN0New.item()}"])
+            tb2 = PrettyTable(["Iter", "etaT", "etab", "Loss", "-lkd", "beta Err", "Theta Err", "reCh", "betat Norm", "Thetat Norm", "beta diff Norm", "btheta diff Norm", "betat L0 norm"])
+            #tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaTOld:>8.3g}", f"{etabOld:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.6g}",  f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}",
+            #    f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>10.3g}", f"{(bThetaOld-bThetaNew).norm().item():>10.3g}", f"{NumN0New.item()}"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaTOld:>3.3g}", f"{etabOld:>3.3g}", f"{Losses[-1]:>6.3f}", f"{LvNow.item():>2.1g}",  f"{torch.norm(beta0-betaNew).item():>6.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>6.3f}",
+                f"{reCh:>6.4g}",  f"{betaNew.norm().item():>2.1f}", f"{bThetaNew.norm().item():>2.1f}", f"{(betaOld-betaNew).norm().item():>6.3g}", f"{(bThetaOld-bThetaNew).norm().item():>6.3g}", f"{NumN0New.item()}"])
             print(tb2)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
@@ -1602,9 +1626,11 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         #    break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
+        # print(betaOld)
+        # print(softS)
         betaOld, bThetaOld = betaNew, bThetaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:
-        return betaOld, bThetaOld, t+1, Berrs, Terrs, betahats, bThetahats, Likelis
+        return betaOld, bThetaOld, t+1, Berrs, Terrs, betahats, bThetahats, Likelis, etass
     else:
         return betaOld, bThetaOld, t+1
