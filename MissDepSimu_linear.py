@@ -10,11 +10,11 @@ import pprint
 from confs import fn, fn2, fn22
 
 parser = argparse.ArgumentParser(description = "This script is to run demo simulation for NMAR project")
-parser.add_argument('-m', type=int, default=100, help = "Parameter m")
-parser.add_argument('-n', type=int, default=100, help = "Parameter n")
+parser.add_argument('-m', type=int, default=225, help = "Parameter m")
+parser.add_argument('-n', type=int, default=225, help = "Parameter n")
 parser.add_argument('-p', type=int, default=100, help = "Parameter p")
 parser.add_argument('-c', '--cuda', type=int, default=0, help = "GPU number")
-parser.add_argument('-num', '--numSimu', type=int, default=50, help = "number of simulation")
+parser.add_argument('-num', '--numSimu', type=int, default=10, help = "number of simulation")
 parser.add_argument('-log', '--logoutput', type=int, default=2, help = "the log level of the function")
 args = parser.parse_args()
 m = args.m
@@ -24,10 +24,22 @@ cudaid = args.cuda
 numSimu = args.numSimu
 loglv = args.logoutput
 bs = {
-        100:-13,
-        140:-8,
-        160:-6
+        100:1.4,
+        125:1.3,
+        150:1.25,
+        175:1.2,
+        200:1.18,
+        225:1.16,
+        250:1.16,
+        275:1.16,
+        300:1.1
      }
+
+def Cbsf(m):
+    if m <= 200:
+        return 800
+    else:
+        return 800
 
 torch.cuda.set_device(cudaid)
 #------------------------------------------------------------------------------------
@@ -44,7 +56,8 @@ cuda = torch.cuda.is_available()
 #cuda = False
 # Set default data type
 if cuda:
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    #torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    torch.set_default_tensor_type(torch.cuda.DoubleTensor)
 
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p, N
@@ -52,10 +65,10 @@ if cuda:
 n = n
 m = m 
 p = p
-N = 20000
+N = 10000
 
-initbetapref = 1 + (torch.rand(p)-1/2)  #[0.75, 1.25]
-initthetapref = 1 + (torch.rand(n, m)-1/2)/2
+initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.75, 1.25]
+initthetapref = 1 + (torch.rand(n, m)-1/2)/4
 prefix = n*m/10000
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
@@ -64,7 +77,7 @@ sigmaY = 0.1
 
 # generate the parameters
 beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, -3, -4, 5]), torch.zeros(p-7)))
-bTheta0 = genbTheta(n, m, rank=5, sigVs=[24, 16, 16, 11, 8]) * 8 
+bTheta0 = genbTheta(n, m, sigVs=np.array([10, 9, 8, 7, 6])*100/np.sqrt(m*n)) 
 TrueParas = [beta0, bTheta0]
 # initial value of beta and bTheta
 betainit = beta0 * initbetapref
@@ -78,7 +91,8 @@ conDenfs = [fn, fn2, fn22]
 numSimu = numSimu 
 # Termination  tolerance.
 tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
-Cb, CT = 100, 1e-0
+tols = [0, 1e-5, 5e-4]
+Cb, CT = Cbsf(m), 2e-2
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -103,7 +117,7 @@ for i in range(numSimu):
     # generate the samples
     X = genXdis(n, m, p, type="Bern", prob=prob) 
     Y = genYnorm(X, bTheta0, beta0, sigmaY)
-    R = genR(Y, "quadra", a=1, b=bs[m]) # 
+    R = genR(Y, "linear", inp=bs[m]) # 
     # TO find the missing rate. 
     # I control the missing rate around 0.25
     MissRate = R.sum()/R.numel()
@@ -114,7 +128,7 @@ for i in range(numSimu):
     #----------------------------------------------------------------------------------------------------
     # I use try-except statement to avoid error breaking the loop
     try:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis, etass = NewBern(2650, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis, etass = NewBern(50000, X, Y, R, sXs, conDenfs, TrueParas=TrueParas, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
     except RuntimeError as e:
         results.append((-100, Cb, -100, -100,  CT, -100, -100))
         Errs.append([])

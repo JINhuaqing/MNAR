@@ -17,8 +17,8 @@ from scipy.stats import truncnorm
 # seps: small number to avoid zero in log funciton and denominator. 
 seps = 1e-15
 # dtorchdtype and dnpdtype are default data types used for torch package and numpy package, respectively.
-dtorchdtype = torch.float32
-dnpdtype = np.float32
+dtorchdtype = torch.float64
+dnpdtype = np.float64
 
 
 #----------------------------------------------------------------------------------------------------------------
@@ -170,7 +170,7 @@ def MarLamTfn(C, n, m, p):
 
 
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli under MAR
-def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etabs=None, etabsc=None, etaTs=None, etaTsc=None):
+def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, etaT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -186,9 +186,6 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThet
     tol: terminate tolerace.
     prob: sucessful probability of entry of X
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
-    etab: the learning rate of beta
-    etaTs: 1/the learning rate of btheta
-    etaTsc: etaTs increasing schedule
     """
     n, m, p = X.shape
     f, f2, f22 = conDenfs
@@ -212,17 +209,6 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThet
     LamT = LamTfn(CT, n, m, p)
     Lamb = Lambfn(Cb, n, m)
 
-    if etaTs is None:
-        LpTTv0 = MarLpTT(bTheta0, beta0, conDenfs, X, Y, R) # n x m
-        # the spectral norm of a diag matrix is mat.abs().max()
-        etaT = LpTTv0.abs().max().item()
-    else:
-        etaTs = sorted(etaTs, reverse=1)
-        etaTsc = sorted(etaTsc, reverse=1)
-        etaT = etaTs.pop()
-    etabs = sorted(etabs)
-    etabsc = sorted(etabsc, reverse=1)
-    etab = etabs.pop()
     # The log output, nothing to do with algorithm.
     if log>=0:
         tb1 = PrettyTable(["Basic Value", "Lamb", "LamT", "norm of beta0", "norm of bTheta0"])
@@ -233,16 +219,6 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThet
 
     # Starting optimizing.
     for t in range(MaxIters):
-        if len(etabsc) > 0:
-            if t >= etabsc[-1]:
-                if len(etabs) > 0:
-                    etab = etabs.pop()
-                etabsc.pop()
-        if (etaTsc is not None) and (len(etaTsc) > 0):
-            if t >= etaTsc[-1]:
-                if len(etaTs) > 0:
-                    etaT = etaTs.pop()
-                etaTsc.pop()
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
@@ -270,9 +246,9 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThet
         #--------------------------------------------------------------------------------
         # Update bTheta 
         LpTvOld = MarLpT(bThetaOld, betaNew, conDenfs, X, Y, R)
-        svdres = torch.svd(bThetaOld-LpTvOld/etaT)
+        svdres = torch.svd(bThetaOld-LpTvOld*etaT)
         U, S, V =  svdres.U, svdres.S, svdres.V
-        softS = (S-LamT/etaT).clamp_min(0)
+        softS = (S-LamT*etaT).clamp_min(0)
         bThetaNew = U.matmul(torch.diag(softS)).matmul(V.t())
 
         #--------------------------------------------------------------------------------
@@ -295,9 +271,9 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThet
             tb2.add_row([f"{t+1:>6}/{MaxIters}", f"{etaT:>8.3g}", f"{Losses[-1]:>8.3f}", f"{torch.norm(beta0-betaNew).item():>8.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.3f}"])
             print(tb2)
         if log==2:
-            tb2 = PrettyTable(["Iteration", "etaT", "etab", "Loss", "-likelihood", "Error of beta", "Error of Theta", "reCh", "Norm of betat", "Norm of Thetat", "Norm of beta difference", "Norm of btheta difference", "L0 norm of betahat"])
-            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>8.3g}", f"{etab:>8.3g}", f"{Losses[-1]:>8.3f}", f"{LvNow.item():>8.6g}",  f"{torch.norm(beta0-betaNew).item():>8.6f}", f"{torch.norm(bTheta0-bThetaNew).item():>8.6f}",
-                f"{reCh:>8.4g}",  f"{betaNew.norm().item():>8.3f}", f"{bThetaNew.norm().item():>8.3f}", f"{(betaOld-betaNew).norm().item():>10.3g}", f"{(bThetaOld-bThetaNew).norm().item():>10.3g}", f"{NumN0New.item()}"])
+            tb2 = PrettyTable(["Iter", "etaT", "etab", "Loss", "-lkd", "beta Err", "Theta Err", "reCh", "betat Norm ", "Thetat Norm ", "beta diff Norm", "btheta diff Norm", "betahat L0 norm"])
+            tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaT:>4.2g}", f"{etab:>4.3g}", f"{Losses[-1]:>4.3f}", f"{LvNow.item():>4.2g}",  f"{torch.norm(beta0-betaNew).item():>5.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>5.3f}",
+                f"{reCh:>4.2g}",  f"{betaNew.norm().item():>5.3f}", f"{bThetaNew.norm().item():>5.3f}", f"{(betaOld-betaNew).norm().item():>5.3g}", f"{(bThetaOld-bThetaNew).norm().item():>5.3g}", f"{NumN0New.item()}"])
             print(tb2)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
@@ -305,10 +281,11 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThet
             if (reCh < tol):
                 break
         # if the difference of 2 consecutive bThetahat is smaller than tolerance, stop the loop
-        #if ((bThetaOld-bThetaNew).norm() < tolT) and ((betaOld-betaNew).norm() < tolb):
-        #    break
+        if ((bThetaOld-bThetaNew).norm() < tolT) and ((betaOld-betaNew).norm() < tolb):
+            break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
+        #print(betaOld)
         betaOld, bThetaOld = betaNew, bThetaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:
@@ -429,7 +406,7 @@ def MarBetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=1, log=0, betainit=No
 
 
 # New algorithm  to optimize the bTheta when X is Bernoulli 
-def MarBthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etaTs=None, etaTsc=None):
+def MarBthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0, etaT=None):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -462,14 +439,8 @@ def MarBthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetaini
     # Under Cb and CT, compute the Lambda_beta and Lambda_bTheta
     LamT = LamTfn(CT, n, m, p)
 
-    if etaTs is None:
-        LpTTv0 = MarLpTT(bTheta0, beta0, conDenfs, X, Y, R) # n x m
-        # the spectral norm of a diag matrix is mat.abs().max()
-        etaT = LpTTv0.abs().max().item()
-    else:
-        etaTs = sorted(etaTs, reverse=1)
-        etaTsc = sorted(etaTsc, reverse=1)
-        etaT = etaTs.pop()
+    if etaT is None:
+        etaT = 50000
     # The log output, nothing to do with algorithm.
     if log>=0:
         tb1 = PrettyTable(["Basic Value", "LamT", "etaT", "LamT/etaT", "norm of bTheta0"])
@@ -480,11 +451,6 @@ def MarBthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetaini
 
     # Starting optimizing.
     for t in range(MaxIters):
-        if (etaTsc is not None) and (len(etaTsc) > 0):
-            if t >= etaTsc[-1]:
-                if len(etaTs) > 0:
-                    etaT = etaTs.pop()
-                etaTsc.pop()
         #--------------------------------------------------------------------------------
         LvNow = MarL(bThetaOld, beta0,  f, X, Y, R)
         # Add L with penalty items.
@@ -494,9 +460,10 @@ def MarBthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetaini
         #--------------------------------------------------------------------------------
         # Update bTheta 
         LpTvOld = MarLpT(bThetaOld, beta0, conDenfs, X, Y, R)
-        svdres = torch.svd(bThetaOld-LpTvOld/etaT)
+        svdres = torch.svd(bThetaOld-LpTvOld*etaT)
+        #print(LpTvOld.norm())
         U, S, V =  svdres.U, svdres.S, svdres.V
-        softS = (S-LamT/etaT).clamp_min(0)
+        softS = (S-LamT*etaT).clamp_min(0)
         bThetaNew = U.matmul(torch.diag(softS)).matmul(V.t())
 
         #--------------------------------------------------------------------------------
@@ -523,14 +490,15 @@ def MarBthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetaini
             print(tb2)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
-        if t >= 1:
-            if (reCh < tol):
-                break
+        #if t >= 1:
+        #    if (reCh < tol):
+        #        break
         # if the difference of 2 consecutive bThetahat is smaller than tolerance, stop the loop
         if (bThetaOld-bThetaNew).norm() < tol:
             break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
+        #print(softS[:100])
         bThetaOld = bThetaNew 
    #--------------------------------------------------------------------------------
     if ErrOpts:

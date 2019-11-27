@@ -14,7 +14,7 @@ import random
 parser = argparse.ArgumentParser(description = "This script is to plot the error curve for MNAR project")
 parser.add_argument('-p', type=int, default=100, help = "Parameter p")
 parser.add_argument('-t', "--type", type=str, choices=["MNARxBd", "MNARxMAR", "AjMNAR", "MAR", "MNAR"], default="MAR", help = "Specify the types of the plot.")
-parser.add_argument('-et', "--errortype", type=str, choices=["Bias", "MSE"], default="Bias", help = "Specify the types of error to be computed.")
+parser.add_argument('-et', "--errortype", type=str, choices=["Bias", "MSE"], default="MSE", help = "Specify the types of error to be computed.")
 args = parser.parse_args()
 
 # fix the random seed for several packages
@@ -28,7 +28,8 @@ torch.cuda.set_device(1)
 cuda = torch.cuda.is_available()
 # Set default data type
 if cuda:
-    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    #torch.set_default_tensor_type(torch.cuda.FloatTensor)
+    torch.set_default_tensor_type(torch.cuda.DoubleTensor)
 
 # Arguments
 p = args.p
@@ -124,8 +125,10 @@ def sortf(x):
     return float(x.stem.split("_")[-1])
 
 
-files = root.glob(f"Simulation_p{p}*.pkl")
-Marfiles = root.glob(f"Mar_Simulation_p{p}*.pkl")
+files = root.glob(f"SimulationLogistic_p{p}*.pkl")
+#files = root.glob(f"./tolBlarge/SimulationLogistic_p{p}*.pkl")
+Marfiles = root.glob(f"MARSimulationLogistic_p{p}*.pkl")
+#Marfiles = root.glob(f"./tolBlarge/MARSimulationLogistic_p{p}*.pkl")
 files = list(files)
 files.sort(key=sortf)
 Marfiles = list(Marfiles)
@@ -153,7 +156,7 @@ if typ in ["MNARxBd", "MNARxMAR", "AjMNAR", "MNAR"]:
         bTheta0 = torch.tensor(params["bTheta0"])
         a = np.max([bTheta0.abs().max().item(), beta0.abs().max().item()])
         aas.append(a)
-        c0 = 1
+        c0 = p * prob
         c0s.append(c0)
     
     c0 = np.min(c0s)
@@ -166,19 +169,21 @@ if typ in ["MNARxBd", "MNARxMAR", "AjMNAR", "MNAR"]:
                 params, results, errss = ress
             else:
                 params, results, errss, EstParas = ress
+        results = [xi for xi in results if xi[0] != -100]
         resarr = np.array(results)
         m, n, p = params["m"], params["n"], params["p"]
-        xlist.append(n*m)
+        xlist.append(n)
         alpha0b, alpha0t = 1, 1
         beta0 = torch.tensor(params["beta0"])
         bTheta0 = torch.tensor(params["bTheta0"])
         X = genXdis(n, m, p, type="Bern", prob=prob) 
         Y = genYlogit(X, bTheta0, beta0)
-        alpha0t = Alpha_0T(Y, X, bTheta0, beta0)
+        alpha0t = 1
+        #alpha0t = Alpha_0T(Y, X, bTheta0, beta0)
         print(alpha0t, "T")
         #alpha0t = 1
-        alpha0b = Alpha_0b(Y, X, bTheta0, beta0)
-        #alpha0b = 1
+#        alpha0b = Alpha_0b(Y, X, bTheta0, beta0)
+        alpha0b = 1
         print(alpha0b, "b")
         errbub = Errbub(a, c0, m, n, p)
         errtub = ErrTub(a, m, n)
@@ -209,7 +214,8 @@ if typ in ["MNARxMAR", "MAR"]:
             else:
                 params, results, errss, EstParas = ress
         m, n, p = params["m"], params["n"], params["p"]
-        Marxlist.append(n*m)
+        Marxlist.append(n)
+        results = [xi for xi in results if xi[0] != -100]
         resarr = np.array(results)
         if etyp == "Bias":
             assert len(ress) == 4
@@ -237,7 +243,7 @@ Blabel_MNAR_aj = r"Adjusted MNAR $\beta$ errors"
 
 ylabel_name = f"error"
 plt.subplot(211)
-plt.xlabel("mxn")
+plt.xlabel("m=n")
 #plt.ylim([0.05, 0.08])
 if typ == "AjMNAR":
     plt.ylabel("Adjust Error")
@@ -262,7 +268,8 @@ plt.legend()
 
 
 plt.subplot(212)
-plt.xlabel("mxn")
+plt.xlabel("m=n")
+#plt.ylim([0.1, 0.5])
 if typ == "AjMNAR":
     plt.ylabel("Adjusted Error")
     plt.plot(xlist, Terrs, "g-.h", label=Tlabel_MNAR_aj)
