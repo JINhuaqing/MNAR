@@ -13,7 +13,7 @@ import random
 
 parser = argparse.ArgumentParser(description = "This script is to plot the error curve for MNAR project")
 parser.add_argument('-p', type=int, default=100, help = "Parameter p")
-parser.add_argument('-t', "--type", type=str, choices=["MNARxBd", "MNARxMAR", "AjMNAR", "MAR", "MNAR"], default="MAR", help = "Specify the types of the plot.")
+parser.add_argument('-t', "--type", type=str, choices=["MNARxBd", "MNARxMAR", "AjMNAR", "MAR", "MNAR"], default="AjMNAR", help = "Specify the types of the plot.")
 parser.add_argument('-et', "--errortype", type=str, choices=["Bias", "MSE"], default="MSE", help = "Specify the types of error to be computed.")
 args = parser.parse_args()
 
@@ -70,7 +70,7 @@ def prefixBeta(n, m, p, s, alpha0b):
     item2 = (np.log(p)/m/n)**(1/4) / np.sqrt(alpha0b)
     item3 = np.sqrt(s) * Lambfn(Cb, n, m)/alpha0b
     itm = np.max([item1, item2, item3])
-    print("B", item1, item2, item3, itm)
+    #print("B", item1, item2, item3, itm)
     return 1/itm
 
 def prefixTheta(n, m, p, r, alpha0t):
@@ -79,7 +79,7 @@ def prefixTheta(n, m, p, r, alpha0t):
     item2 = (d*np.log(d)/m/n)**(1/4)/np.sqrt(alpha0t)
     item3 = np.sqrt(r) * LamTfn(CT, n, m, p)/alpha0t
     itm = np.max([item1, item2, item3])
-    print("T", item1, item2, item3, itm)
+    #print("T", item1, item2, item3, itm)
     return 1/itm
 
 
@@ -125,10 +125,8 @@ def sortf(x):
     return float(x.stem.split("_")[-1])
 
 
-files = root.glob(f"SimulationLogistic_p{p}*.pkl")
-#files = root.glob(f"./tolBlarge/SimulationLogistic_p{p}*.pkl")
-Marfiles = root.glob(f"MARSimulationLogistic_p{p}*.pkl")
-#Marfiles = root.glob(f"./tolBlarge/MARSimulationLogistic_p{p}*.pkl")
+files = root.glob(f"./MNARlog/Simulation*p{p}*.pkl")
+Marfiles = root.glob(f"./MARlog/MARSimulation*p{p}*.pkl")
 files = list(files)
 files.sort(key=sortf)
 Marfiles = list(Marfiles)
@@ -173,25 +171,22 @@ if typ in ["MNARxBd", "MNARxMAR", "AjMNAR", "MNAR"]:
         resarr = np.array(results)
         m, n, p = params["m"], params["n"], params["p"]
         xlist.append(n)
-        alpha0b, alpha0t = 1, 1
         beta0 = torch.tensor(params["beta0"])
         bTheta0 = torch.tensor(params["bTheta0"])
+        Bmean, Tmean = MeanParas(EstParas)
         X = genXdis(n, m, p, type="Bern", prob=prob) 
         Y = genYlogit(X, bTheta0, beta0)
-        alpha0t = 1
-        #alpha0t = Alpha_0T(Y, X, bTheta0, beta0)
-        print(alpha0t, "T")
-        #alpha0t = 1
-#        alpha0b = Alpha_0b(Y, X, bTheta0, beta0)
-        alpha0b = 1
-        print(alpha0b, "b")
+#        alpha0t = Alpha_0T(Y, X, bTheta0, torch.tensor(Bmean))
+#        print(alpha0t, "T")
+#        alpha0b = Alpha_0b(Y, X, torch.tensor(Tmean), beta0)
+#        print(alpha0b, "b")
+        alpha0b, alpha0t = 1, 1
         errbub = Errbub(a, c0, m, n, p)
         errtub = ErrTub(a, m, n)
         errbubs.append(errbub)
         errtubs.append(errtub)
         if etyp == "Bias":
             assert len(ress) == 4
-            Bmean, Tmean = MeanParas(EstParas)
             Berr = np.sqrt(((beta0.cpu().numpy()-Bmean)**2).sum())
             Terr = np.sqrt(((bTheta0.cpu().numpy()-Tmean)**2).sum())
         else:

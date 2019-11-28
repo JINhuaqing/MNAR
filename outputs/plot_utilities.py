@@ -28,7 +28,7 @@ def Alpha_0b(Y, X, bTheta, beta):
     f0 = cond10 - cond20.unsqueeze(-1) * cond20.unsqueeze(0)
     f1 = cond11 - cond21.unsqueeze(-1) * cond21.unsqueeze(0)
     #pref0, pref1 = 1-Normal(0, 1).cdf(0-inp), 1-Normal(0, 1).cdf(1-inp)
-    pref0, pref1 = 1 - 0.45, 1 - 0.05
+    pref0, pref1 = 1 - 0.65, 1 - 0.05
     p0, p1 = (Y==0).sum().float()/Y.numel(), (Y==1).sum().float()/Y.numel()
     mat = p0*pref0*f0 + p1*pref1*f1
     svdres = torch.svd(mat)
@@ -74,7 +74,7 @@ def Alpha_0T(Y, X, bTheta, beta):
     Fv = Condexp1 - Condexp2**2
     mat = torch.zeros(n, m)
     #pref0, pref1 = 1-Normal(0, 1).cdf(0-inp), 1-Normal(0, 1).cdf(1-inp)
-    pref0, pref1 = 1 - 0.45, 1 - 0.05
+    pref0, pref1 = 1 - 0.65, 1 - 0.05
     p0, p1 = (Y==0).sum().float()/Y.numel(), (Y==1).sum().float()/Y.numel()
     mat[Y==0] = p0*pref0*Fv[Y==0]
     mat[Y==1] = p1*pref1*Fv[Y==1]

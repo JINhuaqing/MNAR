@@ -24,10 +24,50 @@ torch.set_default_tensor_type(torch.cuda.DoubleTensor)
 
 root = Path("./")
 
+def Cbsf(m):
+    if m < 200:
+        return 20
+    elif m == 200:
+        return 30
+    else:
+        return 40
+
 # Fixed parameters 
 p = 200
 prob = 0.05
+# only needed for logistic setting
+r, s = 5, 5
+CT = 2e-3
 
+
+# just constant before the penalty item of beta
+def Lambfn(C, n, m):
+    rawv = np.sqrt(np.log(m+n))/m/n
+    return C*rawv
+
+
+# To compute the Lambda_bTheta
+# just constant before the penalty item of bTheta
+def LamTfn(C, n, m, p):
+    d = np.sqrt(m*n)
+    rawvs = [np.sqrt(np.log(d)/d), (np.log(p))**(1/4)/np.sqrt(d)]
+    rawv = np.max(rawvs)
+    return C*rawv
+
+def prefixBeta(n, m, p, s, alpha0b):
+    item1 = np.sqrt(s)*np.sqrt(np.log(p)/m/n)
+    item2 = (np.log(p)/m/n)**(1/4) / np.sqrt(alpha0b)
+    item3 = np.sqrt(s) * Lambfn(Cbsf(m), n, m)/alpha0b
+    itm = np.max([item1, item2, item3])
+    return 1/itm
+
+def prefixTheta(n, m, p, r, alpha0t):
+    d = np.sqrt(m*n)
+    item1 = np.sqrt(r) *  np.sqrt(d*np.log(d)/m/n)
+    item2 = (d*np.log(d)/m/n)**(1/4)/np.sqrt(alpha0t)
+    item3 = np.sqrt(r) * LamTfn(CT, n, m, p)/alpha0t
+    itm = np.max([item1, item2, item3])
+    return 1/itm
 
 def Errbub(a, c0, m, n, p):
     alpha0b = 1
@@ -60,6 +100,8 @@ Marfiles.sort(key=sortf)
 
 Berrs = []
 Terrs = []
+AjBerrs = []
+AjTerrs = []
 mBerrs = []
 mTerrs = []
 MarBerrs = []
@@ -93,7 +135,6 @@ for f in files:
     resarr = np.array(results)
     m, n, p = params["m"], params["n"], params["p"]
     xlist.append(n)
-    alpha0b, alpha0t = 1, 1
     beta0 = torch.tensor(params["beta0"])
     bTheta0 = torch.tensor(params["bTheta0"])
     alpha0t, alpha0b = 1, 1
@@ -105,6 +146,11 @@ for f in files:
     mBerr, mTerr = np.max(resarr, axis=0)[[2, 5]]
     Berrs.append(Berr)
     Terrs.append(Terr)
+    preB = prefixBeta(n, m, p, s, alpha0b)
+    preT = prefixTheta(n, m, p, r, alpha0t)
+    print(preB, preT)
+    AjBerrs.append(Berr*preB)
+    AjTerrs.append(Terr*preT)
     mBerrs.append(mBerr)
     mTerrs.append(mTerr)
 
@@ -135,7 +181,23 @@ plt.ylabel(r"$\Vert\widehat{\mathrm{\Theta}}-\mathrm{\Theta}_0\Vert_F$")
 plt.plot(xlist, mTerrs, "g-.h", label="Maximal Error", linewidth=2)
 plt.plot(xlist, np.array(errtubs), "r--", label="Error Upper Bound", linewidth=2)
 plt.legend(loc=1)
-plt.savefig(f"{p}_MNARxBD_Logistic.jpg")
+#plt.savefig(f"{p}_MNARxBD_Logistic.jpg")
+
+plt.close()
+
+# plot AjMNAR for logistic
+plt.subplots_adjust(hspace=0.5)
+plt.subplot(211)
+plt.xlabel("m=n")
+plt.ylabel(r"Adjusted $\Vert\widehat{\mathrm{\beta}}-\mathrm{\beta}_0\Vert_2$")
+plt.plot(xlist, AjBerrs, "g-.h", label="Adjusted Errors", linewidth=2)
+plt.legend(loc=1)
+plt.subplot(212)
+plt.xlabel("m=n")
+plt.ylabel(r"Adjusted $\Vert\widehat{\mathrm{\Theta}}-\mathrm{\Theta}_0\Vert_F$")
+plt.plot(xlist, AjTerrs, "g-.h", label="Adjusted Error", linewidth=2)
+plt.legend(loc=1)
+plt.savefig(f"{p}_AjMNAR_Logistic.jpg")
 
 plt.close()
 
@@ -154,7 +216,7 @@ plt.plot(xlist, Terrs, "g-.h", label="MNAR", linewidth=2)
 plt.plot(Marxlist, MarTerrs, "b-.x", label="MAR", linewidth=2)
 plt.legend(loc=1)
 #plt.savefig(f"{p}_MNARxMAR_Linear.jpg")
-plt.savefig(f"{p}_MNARxMAR_Logistic.jpg")
+#plt.savefig(f"{p}_MNARxMAR_Logistic.jpg")
 
 
 
