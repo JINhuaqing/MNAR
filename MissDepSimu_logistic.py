@@ -28,7 +28,7 @@ loglv = args.logoutput
 def Cbsf(m):
     if m < 200:
         return 20
-    elif m == 200:
+    elif m <= 225:
         return 30
     else:
         return 40

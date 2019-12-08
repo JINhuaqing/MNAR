@@ -10,8 +10,8 @@ import pprint
 from confs import fn, fn2, fn22
 
 parser = argparse.ArgumentParser(description = "This script is to run demo simulation for NMAR project")
-parser.add_argument('-m', type=int, default=225, help = "Parameter m")
-parser.add_argument('-n', type=int, default=225, help = "Parameter n")
+parser.add_argument('-m', type=int, default=200, help = "Parameter m")
+parser.add_argument('-n', type=int, default=200, help = "Parameter n")
 parser.add_argument('-p', type=int, default=100, help = "Parameter p")
 parser.add_argument('-c', '--cuda', type=int, default=0, help = "GPU number")
 parser.add_argument('-num', '--numSimu', type=int, default=10, help = "number of simulation")
@@ -29,9 +29,13 @@ bs = {
         150:1.25,
         175:1.2,
         200:1.18,
+        212:1.17,
         225:1.16,
+        238:1.16,
         250:1.16,
+        263:1.16,
         275:1.16,
+        287:1.14,
         300:1.1
      }
 

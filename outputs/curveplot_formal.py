@@ -3,7 +3,6 @@ from pathlib import Path
 import numpy as np
 from pickle import load
 import torch
-from plot_utilities import *
 import argparse
 import random
 
@@ -24,7 +23,12 @@ torch.set_default_tensor_type(torch.cuda.DoubleTensor)
 
 root = Path("./")
 
-def Cbsf(m):
+#def Cbsf(m): # Linear
+#    if m <= 200:
+#        return 800
+#    else:
+#        return 800
+def Cbsf(m): #logistic
     if m < 200:
         return 20
     elif m == 200:
@@ -37,7 +41,8 @@ p = 200
 prob = 0.05
 # only needed for logistic setting
 r, s = 5, 5
-CT = 2e-3
+CT = 2e-3 # logistic 
+#CT = 2e-2 # linear
 
 
 # just constant before the penalty item of beta
@@ -148,7 +153,6 @@ for f in files:
     Terrs.append(Terr)
     preB = prefixBeta(n, m, p, s, alpha0b)
     preT = prefixTheta(n, m, p, r, alpha0t)
-    print(preB, preT)
     AjBerrs.append(Berr*preB)
     AjTerrs.append(Terr*preT)
     mBerrs.append(mBerr)
@@ -185,19 +189,20 @@ plt.legend(loc=1)
 
 plt.close()
 
-# plot AjMNAR for logistic
+# plot AjMNAR for logistic and Linear
 plt.subplots_adjust(hspace=0.5)
 plt.subplot(211)
 plt.xlabel("m=n")
-plt.ylabel(r"Adjusted $\Vert\widehat{\mathrm{\beta}}-\mathrm{\beta}_0\Vert_2$")
+plt.ylabel(r"$f_{\mathrm{\beta}}\Vert\widehat{\mathrm{\beta}}-\mathrm{\beta}_0\Vert_2$")
 plt.plot(xlist, AjBerrs, "g-.h", label="Adjusted Errors", linewidth=2)
 plt.legend(loc=1)
 plt.subplot(212)
 plt.xlabel("m=n")
-plt.ylabel(r"Adjusted $\Vert\widehat{\mathrm{\Theta}}-\mathrm{\Theta}_0\Vert_F$")
+plt.ylabel(r"$f_{\mathrm{\Theta}}\Vert\widehat{\mathrm{\Theta}}-\mathrm{\Theta}_0\Vert_F$")
 plt.plot(xlist, AjTerrs, "g-.h", label="Adjusted Error", linewidth=2)
 plt.legend(loc=1)
 plt.savefig(f"{p}_AjMNAR_Logistic.jpg")
+#plt.savefig(f"{p}_AjMNAR_Linear.jpg")
 
 plt.close()
 
