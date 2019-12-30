@@ -5,3 +5,5 @@ imgs*/
 outputs/PKL_OrgMissing/*.pkl
 *.pkl
 __pycache__/
+*.json
+*.tar
