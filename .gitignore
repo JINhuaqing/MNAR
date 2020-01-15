@@ -7,3 +7,5 @@ outputs/PKL_OrgMissing/*.pkl
 __pycache__/
 *.json
 *.tar
+*.pdf
+tmp.*
