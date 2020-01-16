@@ -77,4 +77,12 @@ num = np.sum(numlist)
 print(1-num/numtt)
 
 
+Customers = [i[0] for i in ress]
+Restaurants = [i[0] for i in Rests]
+print(Customers)
+print(Restaurants)
+if not osp.isfile("custrest.pkl"):
+    with open("custrest.pkl", "wb") as fi:
+        pickle.dump({"customers":Customers, "restaurants":Restaurants}, fi)
+
 
