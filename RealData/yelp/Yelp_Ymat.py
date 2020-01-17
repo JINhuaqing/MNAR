@@ -22,7 +22,7 @@ if not osp.isfile("Y.pkl"):
         crest = oneobs["business_id"]
         ccust = oneobs["user_id"] 
         if (crest in selrests) and (ccust in selcusts):
-            Y[crest][ccust] = oneobs["stars"]
+            Y[crest][ccust] = {"stars":oneobs["stars"], "date": oneobs["date"], "UFC":[oneobs["useful"], oneobs["funny"], oneobs["cool"]]}
         if idx == 1000:
             pass #break
     
