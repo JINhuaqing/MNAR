@@ -44,7 +44,7 @@ def date2weekday(datestring):
         return 0
 
 
-N = 50000
+N = 200000
 p = 26
 if not osp.isfile("Xsps.pkl"):
     Xsps = np.zeros((N, p))
