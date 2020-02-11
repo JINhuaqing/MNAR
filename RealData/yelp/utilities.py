@@ -4,6 +4,7 @@ import numpy.random as npr
 from torch.distributions.normal import Normal
 from prettytable import PrettyTable
 from scipy.stats import truncnorm
+from tqdm import tqdm
 
 #----------------------------------------------------------------------------------------------------------------
 
@@ -895,7 +896,7 @@ def RealDataAlg(MaxIters, X, Y, R, sXs, conDenfs, Cb=10, CT=1, log=0, bThetainit
     Losses = []
 
     # Starting optimizing.
-    for t in range(MaxIters):
+    for t in tqdm(range(MaxIters)):
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
@@ -929,6 +930,11 @@ def RealDataAlg(MaxIters, X, Y, R, sXs, conDenfs, Cb=10, CT=1, log=0, bThetainit
         LossNew = missdepLR(LvNew, bThetaOld, betaNew, LamT, Lamb)
         ROld = (LossNew - Lcon)/LamT
         etaTOld = etaT # 0.05 for linear setting
+        #tmpmatrix = bThetaOld-LpTvOld*etaTOld
+        #tmpmatarr = tmpmatrix.cpu().numpy()
+        #U, S, VT = np.linalg.svd(tmpmatarr)
+        #U, S, VT = torch.tensor(U), torch.tensor(S), torch.tensor(VT)
+        #V = VT.t()
         svdres = torch.svd(bThetaOld-LpTvOld*etaTOld)
         U, S, V =  svdres.U, svdres.S, svdres.V
         softS = (S-LamT*etaTOld).clamp_min(0)

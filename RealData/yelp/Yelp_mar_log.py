@@ -6,7 +6,7 @@ import pickle
 from confs import fln, fln2, fln22, fn, fn2, fn22
 import pandas as pd
 
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -72,7 +72,7 @@ logist = True
 
 if logist:
     Y = Yraw.copy()
-    thre = 3.5
+    thre = 4.5
     Y[Yraw>=thre] = 1
     Y[Yraw<thre] = 0
     conDenfs = [fln, fln2, fln22]
@@ -98,12 +98,12 @@ if logist:
     etab, etaT = 0.1, 1
 else:
     # initial value of beta and bTheta
-    betainit = torch.zeros(p) 
+    betainit = torch.zeros(p)
     #betainit = torch.randn(p) 
     bThetainit = torch.randn(n, m)
     tols = [0, 2.5e-6, 5e-3]
-    Cb, CT = 800, 4e-3*5
-    etab, etaT = 0.01, 0.01
+    Cb, CT = 800, 2e-2
+    etab, etaT = 0.01*2e-2, 10
 
 #tols = [0, 0, 0]
 
@@ -118,7 +118,7 @@ for expidx in range(1, numdid+1):
     R = torch.tensor(R)
     R[idx1:idx2,:] = 0
     
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = MarRealDataAlg(5000, X, Y, R, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=2, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = MarRealDataAlg(5000, X, Y, R, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=0, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
     
     print(
     f"Now it is {expidx}/10, "

@@ -5,7 +5,7 @@ import numpy.random as npr
 from torch.distributions.normal import Normal
 from prettytable import PrettyTable
 from scipy.stats import truncnorm
-
+from tqdm import tqdm 
 #----------------------------------------------------------------------------------------------------------------
 
 # This file contains the functions for main simulation for MAR settting
@@ -212,7 +212,7 @@ def MarRealDataAlg(MaxIters, X, Y, R, conDenfs, Cb=10, CT=1, etab=1e-3, etaT=1, 
     Losses = []
 
     # Starting optimizing.
-    for t in range(MaxIters):
+    for t in tqdm(range(MaxIters)):
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
@@ -280,7 +280,8 @@ def MarRealDataAlg(MaxIters, X, Y, R, conDenfs, Cb=10, CT=1, etab=1e-3, etaT=1, 
         #print(betaOld)
         betaOld, bThetaOld = betaNew, bThetaNew 
         if t % 10 == 0:
-            print(betaOld)
+            pass
+            #print(betaOld)
    #--------------------------------------------------------------------------------
     if ErrOpts:
         return betaOld, bThetaOld, t+1, betahats, bThetahats, Likelis

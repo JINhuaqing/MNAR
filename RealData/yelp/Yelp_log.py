@@ -24,6 +24,37 @@ cuda = torch.cuda.is_available()
 if cuda:
     torch.set_default_tensor_type(torch.cuda.DoubleTensor)
 
+def TransYf(Y, Yraw, byrow=False, is_sd=False):
+    n, m = Y.shape
+    if byrow:
+        for j in range(n):
+            tmp = Y[j, :][Yraw[j, :]!=-1]
+            sd = tmp.std()
+            Y[j, :] = Y[j, :] - np.mean(tmp)
+            if is_sd:
+                Y[j, :] = Y[j, :]/sd
+    else:
+        for i in range(m):
+            tmp = Y[:, i][Yraw[:, i]!=-1]
+            sd = tmp.std()
+            Y[:, i] = Y[:, i] - np.mean(tmp)
+            if is_sd:
+                Y[:, i] = Y[:, i]/sd
+    return Y
+
+def TransYlogf(Y, Yraw, byrow=False):
+    n, m = Y.shape
+    if byrow:
+        for j in range(n):
+            tmp = Yraw[j, :][Yraw[j, :]!=-1]
+            Y[j, :] = np.log(Y[j, :] / np.sum(tmp))
+    else:
+        for i in range(m):
+            tmp = Yraw[:, i][Yraw[:, i]!=-1]
+            Y[:, i] = np.log(Y[:, i]/np.sum(tmp))
+    Y[Yraw==-1] = -1
+    Y = TransYf(Y, Yraw, byrow, True)
+    return Y
 #------------------------------------------------------------------------------------
 # Load real data
 Yp = "./Ymat.pkl"
@@ -45,7 +76,7 @@ stds = np.expand_dims(stds, axis=0)
 #------------------------------------------------------------------------------------
 # N is number of samples used for MCMC
 n, m, p = X.shape
-N = 30000
+N = 20000
 Nmax, _ = sXsall.shape
 assert Nmax >= N
 sXs = sXsall[:N, :] 
@@ -58,19 +89,20 @@ X = (X-means)/stds
 
 X = torch.tensor(X)
 sXs = torch.tensor(sXs)
-logist = True
+logist = False
 if logist:
     Y = Yraw.copy()
-    thre = 3.5
+    thre = 4.5
     Y[Yraw>=thre] = 1
     Y[Yraw<thre] = 0
     # The likelihood and its derivatives of Y|X
     conDenfs = [fln, fln2, fln22]
 else: 
     Y = Yraw.copy()
-    Ym = Y[Yraw!=-1].mean()
-    Ysd = Y[Yraw!=-1].std()
-    Y = (Y - Ym)/Ysd
+    #Ym = Y[Yraw!=-1].mean()
+    #Ysd = Y[Yraw!=-1].std()
+    #Y = (Y - Ym)/Ysd
+    Y = TransYlogf(Y, Yraw, True)
     conDenfs = [fn, fn2, fn22]
     
 Y = torch.tensor(Y)
@@ -85,17 +117,18 @@ if logist:
     bThetainit = torch.rand(n, m) + 0.1
     Cb, CT = 60, 4e-3 
     etab, etaT = 0.1, 1 * 5 
-    tols = [0, 1.6e-5, 1e-2]
+    #tols = [0, 1.6e-5, 1e-2] # thre = 3.5
     #tols = [0, 5e-6, 7e-3]
+    tols = [0, 1e-5, 5e-3]
 else:
     #betainit = torch.ones(p) 
     #betainit = torch.randn(p) + 1
     betainit = torch.zeros(p) 
-    bThetainit = torch.rand(n, m) + 0.1
-    Cb, CT = 800, 2e-2*5
-    etab, etaT = 0.05, 0.05*100
+    bThetainit = torch.randn(n, m)
+    Cb, CT = 800*2, 2e-2
+    etab, etaT = 0.00001, 1
     tols = [0, 5e-6, 7e-3]
-#tols = [0, 0, 0]
+tols = [0, 0, 0]
 #----------------------------------------------------------------------------------------------------
 
 resdic = {}
@@ -107,7 +140,7 @@ for expidx in range(1, 21):
     R = torch.tensor(R)
     R[idx1:idx2,:] = 0
 
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(3000, X, Y, R, sXs, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=2, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(300000, X, Y, R, sXs, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=2, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
     print(
     f"Now it is {expidx}/10, "
     f"The Iteration number is {numI}."
