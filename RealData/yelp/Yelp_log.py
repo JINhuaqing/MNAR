@@ -125,7 +125,7 @@ else:
     #betainit = torch.randn(p) + 1
     betainit = torch.zeros(p) 
     bThetainit = torch.randn(n, m)
-    Cb, CT = 800*2, 2e-2
+    Cb, CT = 800*4, 2e-2
     etab, etaT = 0.00001, 1
     tols = [0, 5e-6, 7e-3]
 tols = [0, 0, 0]
