@@ -971,7 +971,7 @@ def RealDataAlg(MaxIters, X, Y, R, sXs, conDenfs, Cb=10, CT=1, log=0, bThetainit
             break
         #--------------------------------------------------------------------------------
         # Change New to Old for starting next iteration
-        print(betaOld)
+        #print(betaOld)
         #print(softS)
         betaOld, bThetaOld = betaNew, bThetaNew 
    #--------------------------------------------------------------------------------
