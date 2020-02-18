@@ -212,7 +212,7 @@ def MarRealDataAlg(MaxIters, X, Y, R, conDenfs, Cb=10, CT=1, etab=1e-3, etaT=1, 
     Losses = []
 
     # Starting optimizing.
-    for t in tqdm(range(MaxIters)):
+    for t in tqdm(range(MaxIters), desc="MAR"):
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)

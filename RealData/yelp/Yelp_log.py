@@ -1,4 +1,5 @@
 from utilities import RealDataAlg
+from utilities_mar import MarRealDataAlg
 import random
 import numpy as np
 import torch
@@ -76,7 +77,7 @@ stds = np.expand_dims(stds, axis=0)
 #------------------------------------------------------------------------------------
 # N is number of samples used for MCMC
 n, m, p = X.shape
-N = 20000
+N = 90000
 Nmax, _ = sXsall.shape
 assert Nmax >= N
 sXs = sXsall[:N, :] 
@@ -89,10 +90,10 @@ X = (X-means)/stds
 
 X = torch.tensor(X)
 sXs = torch.tensor(sXs)
-logist = False
+logist = True
 if logist:
     Y = Yraw.copy()
-    thre = 4.5
+    thre = 3.5
     Y[Yraw>=thre] = 1
     Y[Yraw<thre] = 0
     # The likelihood and its derivatives of Y|X
@@ -115,20 +116,20 @@ if logist:
     #betainit = torch.ones(p) 
     #betainit = torch.rand(p) + 1
     bThetainit = torch.rand(n, m) + 0.1
-    Cb, CT = 60, 4e-3 
+    Cb, CT = 60/2, 4e-3 # decrease the Cb 
     etab, etaT = 0.1, 1 * 5 
-    #tols = [0, 1.6e-5, 1e-2] # thre = 3.5
+    tols = [0, 1.6e-5, 1e-2] # thre = 3.5
     #tols = [0, 5e-6, 7e-3]
-    tols = [0, 1e-5, 5e-3]
+    # tols = [0, 1e-5, 5e-3] # thre = 4.5
 else:
     #betainit = torch.ones(p) 
     #betainit = torch.randn(p) + 1
     betainit = torch.zeros(p) 
     bThetainit = torch.randn(n, m)
     Cb, CT = 800*4, 2e-2
-    etab, etaT = 0.00001, 1
-    tols = [0, 5e-6, 7e-3]
-tols = [0, 0, 0]
+    etab, etaT = 0.00001*2, 1
+    tols = [0, 5e-6, 5e-3]
+#tols = [0, 0, 0]
 #----------------------------------------------------------------------------------------------------
 
 resdic = {}
@@ -140,7 +141,12 @@ for expidx in range(1, 21):
     R = torch.tensor(R)
     R[idx1:idx2,:] = 0
 
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(300000, X, Y, R, sXs, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=2, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
+    martols = [0, 2.5e-6, 5e-3]
+    marCb, marCT = 40, 4e-3
+    maretab, maretaT = 0.1, 1
+
+    marbetahat, marbThetahat, _, marbetahats, marbThetahats, marLikelis = MarRealDataAlg(5000, X, Y, R, conDenfs, etab=maretab, Cb=marCb, CT=marCT, tols=martols, log=0, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=maretaT)
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(4000, X, Y, R, sXs, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=0, betainit=marbetahat, bThetainit=marbThetahat, ErrOpts=1, etaT=etaT)
     print(
     f"Now it is {expidx}/10, "
     f"The Iteration number is {numI}."
@@ -149,7 +155,10 @@ for expidx in range(1, 21):
     Yrawt = torch.tensor(Yraw)
     betaX = torch.matmul(X, betahat)
     TbX = bThetahat + betaX
-    hatprobs = torch.exp(TbX) / (1+torch.exp(TbX))
+    if logist:
+        hatprobs = torch.exp(TbX) / (1+torch.exp(TbX))
+    else:
+        hatprobs = TbX
     mask = (R == 0) & (Yrawt != -1)
     estprobs = hatprobs[mask]
     gtY = Y[mask]

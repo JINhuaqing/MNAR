@@ -896,7 +896,7 @@ def RealDataAlg(MaxIters, X, Y, R, sXs, conDenfs, Cb=10, CT=1, log=0, bThetainit
     Losses = []
 
     # Starting optimizing.
-    for t in tqdm(range(MaxIters)):
+    for t in tqdm(range(MaxIters), desc="MNAR"):
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)

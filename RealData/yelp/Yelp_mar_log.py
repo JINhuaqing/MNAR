@@ -6,7 +6,7 @@ import pickle
 from confs import fln, fln2, fln22, fn, fn2, fn22
 import pandas as pd
 
-torch.cuda.set_device(0)
+torch.cuda.set_device(1)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -28,18 +28,32 @@ def TransYf(Y, Yraw, byrow=False, is_sd=False):
     n, m = Y.shape
     if byrow:
         for j in range(n):
-            tmp = Yraw[j, :][Yraw[j, :]!=-1]
+            tmp = Y[j, :][Yraw[j, :]!=-1]
             sd = tmp.std()
             Y[j, :] = Y[j, :] - np.mean(tmp)
             if is_sd:
                 Y[j, :] = Y[j, :]/sd
     else:
         for i in range(m):
-            tmp = Yraw[:, i][Yraw[:, i]!=-1]
+            tmp = Y[:, i][Yraw[:, i]!=-1]
             sd = tmp.std()
             Y[:, i] = Y[:, i] - np.mean(tmp)
             if is_sd:
                 Y[:, i] = Y[:, i]/sd
+    return Y
+
+def TransYlogf(Y, Yraw, byrow=False):
+    n, m = Y.shape
+    if byrow:
+        for j in range(n):
+            tmp = Yraw[j, :][Yraw[j, :]!=-1]
+            Y[j, :] = np.log(Y[j, :] / np.sum(tmp))
+    else:
+        for i in range(m):
+            tmp = Yraw[:, i][Yraw[:, i]!=-1]
+            Y[:, i] = np.log(Y[:, i]/np.sum(tmp))
+    Y[Yraw==-1] = -1
+    Y = TransYf(Y, Yraw, byrow, True)
     return Y
 
 #------------------------------------------------------------------------------------
@@ -68,7 +82,7 @@ stds = np.expand_dims(stds, axis=0)
 X = (X-means)/stds
 
 X = torch.tensor(X)
-logist = True
+logist = False
 
 if logist:
     Y = Yraw.copy()
@@ -81,7 +95,7 @@ else:
     #Ym = Y[Yraw!=-1].mean()
     #Ysd = Y[Yraw!=-1].std()
     #Y = (Y - Ym)/Ysd
-    Y = TransYf(Y, Yraw)
+    Y = TransYlogf(Y, Yraw, True)
     conDenfs = [fn, fn2, fn22]
 
 Y = torch.tensor(Y)
@@ -101,14 +115,14 @@ else:
     betainit = torch.zeros(p)
     #betainit = torch.randn(p) 
     bThetainit = torch.randn(n, m)
-    tols = [0, 2.5e-6, 5e-3]
+    tols = [0, 1e-6, 5e-3]
     Cb, CT = 800, 2e-2
     etab, etaT = 0.01*2e-2, 10
 
 #tols = [0, 0, 0]
 
 resdic = {}
-numdid = 20
+numdid = 10
 numper = int(n/numdid)
 for expidx in range(1, numdid+1):
     idx1, idx2 = (expidx-1)*numper, expidx*numper
@@ -128,7 +142,10 @@ for expidx in range(1, numdid+1):
     Yrawt = torch.tensor(Yraw)
     betaX = torch.matmul(X, betahat)
     TbX = bThetahat + betaX
-    hatprobs = torch.exp(TbX) / (1+torch.exp(TbX))
+    if logist:
+        hatprobs = torch.exp(TbX) / (1+torch.exp(TbX))
+    else:
+        hatprobs = TbX
     mask = (R == 0) & (Yrawt != -1)
     estprobs = hatprobs[mask]
     gtY = Y[mask]
