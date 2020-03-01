@@ -9,3 +9,4 @@ __pycache__/
 *.tar
 *.pdf
 tmp.*
+RealData/yelp/.ipynb_checkpoints/

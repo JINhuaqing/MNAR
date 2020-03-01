@@ -82,11 +82,11 @@ stds = np.expand_dims(stds, axis=0)
 X = (X-means)/stds
 
 X = torch.tensor(X)
-logist = False
+logist = True
 
 if logist:
     Y = Yraw.copy()
-    thre = 4.5
+    thre = 3.5
     Y[Yraw>=thre] = 1
     Y[Yraw<thre] = 0
     conDenfs = [fln, fln2, fln22]
@@ -107,7 +107,8 @@ if logist:
     bThetainit = torch.rand(n, m) + 0.1
     
     # Termination  tolerance.
-    tols = [0, 2.5e-6, 5e-3]
+    tols = [0, 5e-5, 5e-3]
+    #tols = [0, 2.5e-6, 5e-3]
     Cb, CT = 40, 4e-3
     etab, etaT = 0.1, 1
 else:
@@ -122,7 +123,7 @@ else:
 #tols = [0, 0, 0]
 
 resdic = {}
-numdid = 10
+numdid = 20
 numper = int(n/numdid)
 for expidx in range(1, numdid+1):
     idx1, idx2 = (expidx-1)*numper, expidx*numper
@@ -154,7 +155,7 @@ for expidx in range(1, numdid+1):
 
 # Save the output
 if logist:
-    f = open(f"./MARyelp_log{int(thre*10)}.pkl", "wb")
+    f = open(f"./MARyelp_log{int(thre*10)}_ltol.pkl", "wb")
 else:
     f = open(f"./MARyelp_linear.pkl", "wb")
 pickle.dump(resdic, f)
