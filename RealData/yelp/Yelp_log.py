@@ -1,4 +1,4 @@
-from utilities import RealDataAlg
+from utilities import RealDataAlg, YelpMissing
 from utilities_mar import MarRealDataAlg
 import random
 import numpy as np
@@ -8,7 +8,7 @@ from confs import fln, fln2, fln22, fn, fn2, fn22
 import pandas as pd
 
 
-torch.cuda.set_device(0)
+torch.cuda.set_device(2)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -135,24 +135,22 @@ else:
 resdic = {}
 marresdic = {}
 paras = {"MNAR":[], "MAR": []}
-num_remove = 33 # [5, 13, 23, 33]
+OR = 0.28 # [0.19, 0.22, 0.25, 0.28]
 for expidx in range(1, 21):
-    sel_idx = np.random.choice(100, num_remove, replace=0)
     #idx1, idx2 = (expidx-1)*5, expidx*5
-    R = Yraw.copy()
-    R[Yraw!=-1] = 1
-    R[Yraw==-1] = 0
+    #R = Yraw.copy()
+
+    R = YelpMissing(Yraw, OR=OR)
     R = torch.tensor(R)
     #R[idx1:idx2,:] = 0
-    R[sel_idx, :] = 0 # remove selected rows 
 
     martols = [0, 5e-5, 5e-3]
     marCb, marCT = 40, 4e-3
     maretab, maretaT = 0.1, 1
 
     marbetahat, marbThetahat, _, marbetahats, marbThetahats, marLikelis = MarRealDataAlg(5000, X, Y, R, conDenfs, etab=maretab, Cb=marCb, CT=marCT, tols=martols, log=0, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=maretaT)
-#    marbetahat = torch.zeros(p) 
-#    marbThetahat= torch.rand(n, m) + 0.1 
+    marbetahat = torch.zeros(p) 
+    marbThetahat= torch.rand(n, m) + 0.1 
     betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(5000, X, Y, R, sXs, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=0, betainit=marbetahat, bThetainit=marbThetahat, ErrOpts=1, etaT=etaT)
     print(
     f"Now it is {expidx}/20, "
@@ -187,7 +185,7 @@ res = {
 }
 # Save the output
 if logist:
-    f = open(f"./MNARxMARyelp_log{int(thre*10)}_{num_remove}.pkl", "wb")
+    f = open(f"./MNARxMARyelp_log{int(thre*10)}_{int(100*OR)}.pkl", "wb")
 else:
     f = open(f"./MNARyelp_linear.pkl", "wb")
 pickle.dump(res, f)

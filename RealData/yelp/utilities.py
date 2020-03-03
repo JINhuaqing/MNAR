@@ -979,3 +979,36 @@ def RealDataAlg(MaxIters, X, Y, R, sXs, conDenfs, Cb=10, CT=1, log=0, bThetainit
         return betaOld, bThetaOld, t+1, betahats, bThetahats, Likelis
     else:
         return betaOld, bThetaOld, t+1
+
+
+def YelpMissing(Yraw, OR=0.22, y1ratio=0.5):
+    # get the R
+    R = Yraw.copy()
+    R[Yraw!=-1] = 1
+    R[Yraw==-1] = 0
+
+    rawOR = np.sum(R)/np.prod(R.shape)
+    assert OR <= rawOR
+    
+    numrv = np.prod(R.shape) * (rawOR-OR)
+    numrv1 = int(numrv*y1ratio)
+    numrv0 = int(numrv) - numrv1
+
+    mask1 = (Yraw > 3.5) & (R==1)
+    mask0 = (Yraw < 3.5) & (R==1)
+    selidx1 = np.random.choice(int(np.sum(mask1)), numrv1, replace=0)
+    selidx0 = np.random.choice(int(np.sum(mask0)), numrv0, replace=0)
+
+    tmp1 = R[mask1] 
+    tmp1[selidx1] = 0
+    R[mask1] = tmp1
+
+    tmp0 = R[mask0] 
+    tmp0[selidx0] = 0
+    R[mask0] = tmp0
+
+    return R
+
+    
+
+    
