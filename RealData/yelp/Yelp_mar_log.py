@@ -1,3 +1,4 @@
+from utilities import YelpMissing
 from utilities_mar import MarRealDataAlg
 import random
 import numpy as np
@@ -6,7 +7,7 @@ import pickle
 from confs import fln, fln2, fln22, fn, fn2, fn22
 import pandas as pd
 
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -123,15 +124,10 @@ else:
 #tols = [0, 0, 0]
 
 resdic = {}
-numdid = 20
-numper = int(n/numdid)
-for expidx in range(1, numdid+1):
-    idx1, idx2 = (expidx-1)*numper, expidx*numper
-    R = Yraw.copy()
-    R[Yraw!=-1] = 1
-    R[Yraw==-1] = 0
+OR = 0.28 # [0.19, 0.22, 0.25, 0.28]
+for expidx in range(1, 21):
+    R = YelpMissing(Yraw, OR=OR)
     R = torch.tensor(R)
-    R[idx1:idx2,:] = 0
     
     betahat, bThetahat, numI, betahats, bThetahats, Likelis = MarRealDataAlg(5000, X, Y, R, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=0, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
     
@@ -155,7 +151,7 @@ for expidx in range(1, numdid+1):
 
 # Save the output
 if logist:
-    f = open(f"./MARyelp_log{int(thre*10)}_ltol.pkl", "wb")
+    f = open(f"./MARyelp_log{int(thre*10)}_{int(100*OR)}.pkl", "wb")
 else:
     f = open(f"./MARyelp_linear.pkl", "wb")
 pickle.dump(resdic, f)

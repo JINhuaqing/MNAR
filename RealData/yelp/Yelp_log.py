@@ -8,7 +8,7 @@ from confs import fln, fln2, fln22, fn, fn2, fn22
 import pandas as pd
 
 
-torch.cuda.set_device(2)
+torch.cuda.set_device(3)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -135,7 +135,7 @@ else:
 resdic = {}
 marresdic = {}
 paras = {"MNAR":[], "MAR": []}
-OR = 0.28 # [0.19, 0.22, 0.25, 0.28]
+OR = 0.19 # [0.19, 0.22, 0.25, 0.28]
 for expidx in range(1, 21):
     #idx1, idx2 = (expidx-1)*5, expidx*5
     #R = Yraw.copy()
@@ -149,8 +149,8 @@ for expidx in range(1, 21):
     maretab, maretaT = 0.1, 1
 
     marbetahat, marbThetahat, _, marbetahats, marbThetahats, marLikelis = MarRealDataAlg(5000, X, Y, R, conDenfs, etab=maretab, Cb=marCb, CT=marCT, tols=martols, log=0, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=maretaT)
-    marbetahat = torch.zeros(p) 
-    marbThetahat= torch.rand(n, m) + 0.1 
+#    marbetahat = torch.zeros(p) 
+#    marbThetahat= torch.rand(n, m) + 0.1 
     betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(5000, X, Y, R, sXs, conDenfs, etab=etab, Cb=Cb, CT=CT, tols=tols, log=0, betainit=marbetahat, bThetainit=marbThetahat, ErrOpts=1, etaT=etaT)
     print(
     f"Now it is {expidx}/20, "

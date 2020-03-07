@@ -10,3 +10,4 @@ __pycache__/
 *.pdf
 tmp.*
 RealData/yelp/.ipynb_checkpoints/
+!RealData/yelp/finalres/*.pkl
