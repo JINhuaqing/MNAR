@@ -73,7 +73,6 @@ N = 10000
 
 initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.75, 1.25]
 initthetapref = 1 + (torch.rand(n, m)-1/2)/4
-prefix = n*m/10000
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
 prob = 0.05 # 1000/n/m
