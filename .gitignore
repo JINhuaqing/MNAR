@@ -9,5 +9,7 @@ __pycache__/
 *.tar
 *.pdf
 tmp.*
+Untitled.*
+.ipynb_checkpoints/
 RealData/yelp/.ipynb_checkpoints/
 !RealData/yelp/finalres/*.pkl
