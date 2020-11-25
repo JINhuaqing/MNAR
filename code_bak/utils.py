@@ -133,7 +133,7 @@ def intBernhX(f, bTheta, beta, Y, prob):
 
 
 # Compute the value of first derivative of L w.r.t bTheta with MCMC method for any distributions X.
-def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
+def missdepLpT(bTheta, beta, conDenfs, X, Y, R, sXs):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -142,11 +142,9 @@ def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
     X: the covariate matrix, n x m x p
     Y: the response matrix, n x m
     R: the Missing matrix, n x m
-    fct: the number of times to integrate 
+    sXs: p x N, samples of X_ij to compute the MCMC integration
     """
-    
     n, m, p = X.shape
-    sXs = X.reshape(-1, p).t()
     _, N = sXs.shape
     f, f2, f22 = conDenfs
 
@@ -154,18 +152,21 @@ def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
         idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
-    beta = beta[idxNon0] # p0 x 1
-    sXs = sXs.to_dense()[idxNon0].to_sparse() # p0 x N
-    X = X.to_dense()[:, :, idxNon0].to_sparse() # n x m x p0
+    beta = beta[idxNon0]
+    sXs = sXs.to_dense()[idxNon0].to_sparse()
+    X = X.to_dense()[:, :, idxNon0].to_sparse()
 
-    betaX = torch.matmul(X.to_dense(), beta) # n x m
-    TbX = bTheta + betaX # n x m
+
+    betaX = torch.matmul(X.to_dense(), beta)
+    TbX = bTheta + betaX
+
     itm1 = (f2(Y, TbX)/(f(Y, TbX)+seps))
 
-    # Integration part 
-    bsXs = beta.matmul(sXs.to_dense()) # 1 x N
+    bsXs = beta.matmul(sXs.to_dense())
+   #  TbsXs = bTheta.unsqueeze(dim=-1) + bsXs
+   #  Ym = Y.unsqueeze(dim=-1) + torch.zeros(N)
+    
     torch.cuda.empty_cache()
-
     itm2den = f(Y, bTheta, bsXs).mean(dim=-1) + seps
     itm2num = f2(Y, bTheta, bsXs).mean(dim=-1)
     itm2 = itm2num/itm2den

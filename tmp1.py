@@ -17,7 +17,7 @@ def Cbsf(m):
     else:
         return 400
     
-cudaid = 0
+cudaid = 2
 torch.cuda.set_device(cudaid)
 torch.manual_seed(0) # cpu
 torch.cuda.manual_seed(2) #gpu
@@ -71,7 +71,7 @@ conDenfs = [fn, fn2, fn22]
 
 tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
 tols = [0, 1e-5, 5e-4]
-Cb, CT = 5000, 2e-2
+Cb, CT = 50000, 2e-2
 
 X = genXBin(n, m, p, prob=prob, is_sparse=True) 
 Y = genYnorm(X, bTheta0, beta0, sigmaY)
