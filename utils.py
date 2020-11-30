@@ -60,7 +60,6 @@ def Dshlowerfnorm(Y, X, beta, bTheta, sigma=0.5):
 
 #----------------------------------------------------------------------------------------------------------------
 
-
 # The below Blist, intBernh, and intBernhX functions are to compute the 
 # exact integration when X is Bernoulli and beta is sparse ( nonzeros value of beta is less than 14)
 
@@ -146,7 +145,7 @@ def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
     """
     
     n, m, p = X.shape
-    sXs = X.reshape(-1, p).t()
+    sXs = X.to_dense().reshape(-1, p).t().to_sparse()
     _, N = sXs.shape
     f, f2, f22 = conDenfs
 
@@ -166,9 +165,16 @@ def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
     bsXs = beta.matmul(sXs.to_dense()) # 1 x N
     torch.cuda.empty_cache()
 
-    itm2den = f(Y, bTheta, bsXs).mean(dim=-1) + seps
-    itm2num = f2(Y, bTheta, bsXs).mean(dim=-1)
-    itm2 = itm2num/itm2den
+    lenSeg = int(np.ceil(m/fct))
+    itm2 = torch.zeros((m, n))
+    for i in np.arange(0, m, lenSeg):
+        lower, upper = i, i+lenSeg
+        YPart = Y[:, lower:upper]
+        bThetaPart = bTheta[:, lower:upper]
+        itm2denPart = f(YPart, bThetaPart, bsXs).mean(dim=-1) + seps
+        itm2numPart = f2(YPart, bThetaPart, bsXs).mean(dim=-1)
+        itm2Part = itm2numPart / itm2denPart
+        itm2[:, lower:upper] = itm2Part
 
     itm = R.to_dense() * (itm1 - itm2)/(m*n)
     return -itm
@@ -177,7 +183,7 @@ def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
 
 
 # compute the exact value of first derivative of L w.r.t bTheta when X is Bernoulli.
-def LpTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
+def LpTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5, fct=10):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -191,9 +197,17 @@ def LpTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
     n, m, p = X.shape
     f, f2, f22 = conDenfs
 
-    itm2den = intBernh(f, bTheta, beta, Y, prob) + seps
-    itm2num = intBernh(f2, bTheta, beta, Y, prob)
-    itm2 = itm2num/itm2den
+    lenSeg = int(np.ceil(m/fct))
+    itm2 = torch.zeros((m, n))
+    for i in np.arange(0, m, lenSeg):
+        lower, upper = i, i+lenSeg
+        YPart = Y[:, lower:upper]
+        bThetaPart = bTheta[:, lower:upper]
+        itm2denPart = intBernh(f, bThetaPart, beta, YPart, prob) + seps
+        itm2numPart = intBernh(f2, bThetaPart, beta, YPart, prob)
+        itm2Part = itm2numPart / itm2denPart
+        itm2[:, lower:upper] = itm2Part
+
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
@@ -211,99 +225,8 @@ def LpTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
 
 
 #----------------------------------------------------------------------------------------------------------------
-# Compute the value of second derivative of L w.r.t vec(bTheta) with MCMC method for any distributions X.
-def missdepLpTT(bTheta, beta, conDenfs, X, Y, R, sXs):
-    """
-    Input:
-    bTheta: the matrix parameter, n x m
-    beta: the vector parameter, p 
-    conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
-             [f, f2, f22]. 
-    X: the covariate matrix, n x m x p
-    Y: the response matrix, n x m
-    R: the Missing matrix, n x m
-    sXs: p x N, samples of X_ij to compute the MCMC integration
-    Output:
-    itm: n x m
-    """
-    n, m, p = X.shape
-    _, N = sXs.shape
-    f, f2, f22 = conDenfs
-
-    # remove the elements whose corresponding betaK is zero
-    idxNon0 = torch.nonzero(beta).view(-1)
-    if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
-    beta = beta[idxNon0]
-    sXs = sXs.to_dense()[idxNon0].to_sparse()
-    X = X.to_dense()[:, :, idxNon0].to_sparse()
-
-    betaX = torch.matmul(X.to_dense(), beta)
-    TbX = bTheta + betaX
-
-    itm1 = (f22(Y, TbX)/(f(Y, TbX)+seps))
-    itm2 = (f2(Y, TbX)**2/(f(Y, TbX)**2+seps))
-
-    bsXs = beta.matmul(sXs.to_dense())
-    
-    itm3den = f(Y, bTheta, bsXs).mean(dim=-1) + seps
-    itm3num = f22(Y, bTheta, bsXs).mean(dim=-1)
-    itm3 = itm3num/itm3den
-
-    itm4den = (f(Y, bTheta, bsXs).mean(dim=-1))**2 + seps
-    itm4num = f2(Y, bTheta, bsXs).mean(dim=-1)**2
-    itm4 = itm4num/itm4den
-
-    itm = R.to_dense() * (itm1 - itm2- itm3 + itm4)/(m*n)
-    return -itm
-
-
-# compute the exact value of second derivative of L w.r.t vec(bTheta) when X is Bernoulli.
-def LpTTBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
-    """
-    Inputs:
-    bTheta: the matrix parameter, n x m
-    beta: the vector parameter, p 
-    conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
-             [f, f2, f22].
-    X: the covariate matrix, n x m x p
-    Y: the response matrix, n x m
-    R: the Missing matrix, n x m
-    prob: the successful probability of each entry of X
-
-    Output:
-    itm: n x m
-    """
-    n, m, p = X.shape
-    f, f2, f22 = conDenfs
-
-    itm3den = intBernh(f, bTheta, beta, Y, prob) + seps
-    itm3num = intBernh(f22, bTheta, beta, Y, prob)
-    itm3 = itm3num/itm3den
-
-    itm4den = intBernh(f, bTheta, beta, Y, prob)**2 + seps
-    itm4num = intBernh(f2, bTheta, beta, Y, prob)**2
-    itm4 = itm4num/itm4den
-
-    # remove the elements whose corresponding betaK is zero
-    idxNon0 = torch.nonzero(beta).view(-1)
-    if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
-    beta = beta[idxNon0]
-    X = X.to_dense()[:, :, idxNon0].to_sparse()
-
-    betaX = torch.matmul(X.to_dense(), beta)
-    TbX = bTheta + betaX
-
-    itm1 = (f22(Y, TbX)/(f(Y, TbX)+seps))
-    itm2 = (f2(Y, TbX)**2/(f(Y, TbX)**2+seps))
-    
-    itm = R.to_dense() * (itm1 - itm2 - itm3 + itm4)/(m*n)
-    return -itm
-
-#----------------------------------------------------------------------------------------------------------------
 # Compute the value of first derivative of L w.r.t beta with MCMC method for any distributions X.
-def missdepLpb(bTheta, beta, conDenfs, X, Y, R, sXs):
+def missdepLpb(bTheta, beta, conDenfs, X, Y, R, fct=10):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -314,7 +237,10 @@ def missdepLpb(bTheta, beta, conDenfs, X, Y, R, sXs):
     R: the Missing matrix, n x m
     sXs: p x N, samples of X_ij to compute the MCMC integration
     """
-    p, N = sXs.shape
+    n, m, p = X.shape
+    sXs = X.to_dense().reshape(-1, p).t().to_sparse()
+    _, N = sXs.shape
+
     f, f2, _ = conDenfs
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
@@ -328,22 +254,26 @@ def missdepLpb(bTheta, beta, conDenfs, X, Y, R, sXs):
     del XNon0
     TbX = bTheta + betaX # n x m
 
+
     itm1 = ((f2(Y, TbX)/(f(Y, TbX)+seps)).unsqueeze(dim=2) * X.to_dense()).to_sparse() # n x m x p 
     del X
 
     bsXs = betaNon0.matmul(sXsNon0.to_dense()) # N
-    # TbsXs = bTheta.unsqueeze(dim=-1) + bsXs # n x m x N
-    # Ym = Y.unsqueeze(dim=-1) + torch.zeros(N) # n x m x N
+
+    lenSeg = int(np.ceil(m/fct))
+    itm2 = torch.zeros((m, n, p))
+    for i in np.arange(0, m, lenSeg):
+        lower, upper = i, i+lenSeg
+        YPart = Y[:, lower:upper]
+        bThetaPart = bTheta[:, lower:upper]
+        itm2denPart = (f(YPart, bThetaPart, bsXs).mean(dim=-1) + seps)
+        itm2numinPart =  f2(YPart, bThetaPart, bsXs).to_sparse() # ni x mi x N 
+        itm2numPart = torch.stack([(itm2numinPart.to_dense()*sX).mean(dim=-1) for sX in sXs.to_dense()], dim=-1).to_sparse() # ni x mi x p
+        itm2Part = (itm2numPart.to_dense()/itm2denPart.unsqueeze(dim=-1)).to_sparse()
+        itm2[:, lower:upper, :] = itm2Part.to_dense()
     
-    itm2den = (f(Y, bTheta, bsXs).mean(dim=-1) + seps)
-#    itm2num = (f2(Ym, TbsXs).unsqueeze(dim=-2) * sXs).mean(dim=-1)
     torch.cuda.empty_cache()
-    itm2numin =  f2(Y, bTheta, bsXs).to_sparse() # n x m x N 
-    itm2num = torch.stack([(itm2numin.to_dense()*sX).mean(dim=-1) for sX in sXs.to_dense()], dim=-1).to_sparse() # n x m x p
-
-    itm2 = (itm2num.to_dense()/itm2den.unsqueeze(dim=-1)).to_sparse()
-
-    itm = (R.to_dense().unsqueeze(dim=2) * ((itm1 - itm2).to_dense())).to_sparse()
+    itm = (R.to_dense().unsqueeze(dim=2) * (itm1.to_dense() - itm2)).to_sparse()
     return -itm.to_dense().mean(dim=[0, 1])
 
 
@@ -394,10 +324,8 @@ def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
 
 #----------------------------------------------------------------------------------------------------------------
 
-
-#----------------------------------------------------------------------------------------------------------------
 # Compute the value of L with MCMC method for any distributions X.
-def missdepL(bTheta, beta, f, X, Y, R, sXs):
+def missdepL(bTheta, beta, f, X, Y, R, fct=10):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -407,6 +335,8 @@ def missdepL(bTheta, beta, f, X, Y, R, sXs):
     R: the Missing matrix, n x m
     sXs: p x N, samples of X_ij to compute the MCMC integration
     """
+    n, m, p = X.shape
+    sXs = X.to_dense().reshape(-1, p).t().to_sparse()
     _, N = sXs.shape
     betaX = torch.matmul(X.to_dense(), beta)
     TbX = bTheta + betaX
@@ -416,8 +346,16 @@ def missdepL(bTheta, beta, f, X, Y, R, sXs):
     bsXs = beta.matmul(sXs.to_dense())
     # TbsXs = bTheta.unsqueeze(dim=-1) + bsXs
     # Ym = Y.unsqueeze(dim=-1) + torch.zeros(N)
+
+    lenSeg = int(np.ceil(m/fct))
+    itm2 = torch.zeros((m, n))
+    for i in np.arange(0, m, lenSeg):
+        lower, upper = i, i+lenSeg
+        YPart = Y[:, lower:upper]
+        bThetaPart = bTheta[:, lower:upper]
+        itm2Part = torch.log(f(YPart, bThetaPart, bsXs).mean(dim=-1)+seps)
+        itm2[:, lower:upper] = itm2Part
     
-    itm2 = torch.log(f(Y, bTheta, bsXs).mean(dim=-1)+seps)
 
     itm = R.to_dense() * (itm1 - itm2)
     return -itm.mean(dim=[0, 1])
