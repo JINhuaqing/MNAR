@@ -1,4 +1,4 @@
-from utilities import *
+from utils import *
 import random
 import numpy as np
 import torch
@@ -7,13 +7,32 @@ import timeit
 import time
 import argparse
 import pprint
-from confs import fln, fln2, fln22
-from scipy.optimize import minimize
+from confs import fn, fn2, fn22
 
-m = 100
-n = 100
-p = 3
 cudaid = 0
+loglv = 2
+bs = {
+        100:1.4,
+        125:1.3,
+        150:1.25,
+        175:1.2,
+        200:1.18,
+        212:1.17,
+        225:1.16,
+        238:1.16,
+        250:1.16,
+        263:1.16,
+        275:1.16,
+        287:1.14,
+        300:1.1,
+        1000: 1
+     }
+
+def Cbsf(m):
+    if m <= 200:
+        return 800
+    else:
+        return 800
 
 torch.cuda.set_device(cudaid)
 #------------------------------------------------------------------------------------
@@ -30,48 +49,73 @@ cuda = torch.cuda.is_available()
 #cuda = False
 # Set default data type
 if cuda:
+    #torch.set_default_tensor_type(torch.cuda.FloatTensor)
     torch.set_default_tensor_type(torch.cuda.DoubleTensor)
-ddtype = torch.float64
 
 #------------------------------------------------------------------------------------
-# Set the number of n, m, p, N
-# N is number of samples used for MCMC
-n = n
-m = m 
-p = p
-N = 20000
+# Set the number of n, m, p
+n = 1000
+m = 1000
+p = 100
 
-initbetapref = 1 + (torch.rand(p)-1/2)  #[0.75, 1.25]
+initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.75, 1.25]
+initthetapref = 1 + (torch.rand(n, m)-1/2)/4
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
-prob = 0.05 
-# generate the parameters
-# beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, -3, -4, 5]), torch.zeros(p-7))) # orginal beta0
-beta0 = torch.tensor([1.0, 2, 3])
-bTheta0 = genbTheta(n, m, rank=5) * 0
-TrueParas = [beta0, bTheta0]
-betainit = beta0 * initbetapref
-conDenfs = [fln, fln2, fln22]
-X = genXdis(n, m, p, type="Bern", prob=prob) 
-Y = genYlogit(X, bTheta0, beta0)
-R = genR(Y, "fixed")
-sXs = genXdis(N, p, type="Bern", prob=prob) 
+prob = 0.05 # 1000/n/m
+sigmaY = 0.1
 
-# def ObjFun(beta):
-#     betaTS = torch.tensor(beta, dtype=ddtype)
-#     print(beta)
-#     fv = LBern(bTheta0, betaTS, fln, X, Y, R, prob)
-#     return fv.cpu().numpy() 
-# 
-# def ObjFunD1(beta):
-#     betaTS = torch.tensor(beta, dtype=ddtype)
-#     fv = LpbBern(bTheta0, betaTS, conDenfs, X, Y, R, prob)
-#     return fv.cpu().numpy()
-# 
-# res = minimize(ObjFun, 
-#             x0=np.array([0, 2, 1]), 
-#             #jac=ObjFunD1, 
-#             method="L-BFGS-B",
-#             options={"iprint":-1})
-# print(res)
+# generate the parameters
+beta0 = torch.cat((torch.tensor([1.0, 0, 2, 0, -3, -4, 5]), torch.zeros(p-7)))
+bTheta0 = genbTheta(n, m, sigVs=np.array([10, 9, 8, 7, 6])*100/np.sqrt(m*n)) 
+TrueParas = [beta0, bTheta0]
+# initial value of beta and bTheta
+betainit = beta0 * initbetapref
+bThetainit = bTheta0 * initthetapref
+# The likelihood and its derivatives of Y|X
+conDenfs = [fn, fn2, fn22]
+
+
+
+#------------------------------------------------------------------------------------
+# Termination  tolerance.
+tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
+tols = [0, 1e-5, 5e-4]
+Cb, CT = 1600, 2e-0
+# The list to contain output results
+params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
+params["n"] = n
+params["m"] = m
+params["p"] = p
+params["Xtype"] = "Bernoulli"
+params["Y|X_type"] = "Normal"
+params["MissRate"] = []
+
+pprint.pprint(params)
+
+#------------------------------------------------------------------------------------
+# The list to contain training errors 
+Errs = []
+EstParas = []
+results = []
+
+#------------------------------------------------------------------------------------
+# generate the samples
+X = genXBin(n, m, p, prob=prob) 
+Y = genYnorm(X, bTheta0, beta0, sigmaY)
+R = genR(Y, "linear", inp=bs[m]) # 
+# To find the missing rate. 
+# I control the missing rate around 0.25
+MissRate = R.to_dense().sum()/R.to_dense().numel()
+#print(MissRate)
+#----------------------------------------------------------------------------------------------------
+betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis, etass = NewBern(50000, X, Y, R, conDenfs, TrueParas=TrueParas, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
+errb = torch.norm(beta0-betahat)
+errT = torch.norm(bTheta0-bThetahat)
+print(
+    f"The Iteration number is {numI}, "
+    f"The error of beta is {errb.item():.3f}, "
+    f"The error of bTheta is {errT.item():.3f}."
+)
+
 

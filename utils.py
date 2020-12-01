@@ -439,7 +439,7 @@ def LamTfn(C, n, m, p):
 #----------------------------------------------------------------------------------------------------------------
 
 # Generate X from Bernoulli distribution
-def genXBin(*args, prob=0.1, is_sparse=False):
+def genXBin(*args, prob=0.1, is_sparse=True):
     assert len(args) in [2, 3]
     p, size = args[-1], args[:-1]
     X = npr.uniform(0, 1, args)
@@ -454,7 +454,7 @@ def genXBin(*args, prob=0.1, is_sparse=False):
         return torch.tensor(X).to(dtorchdtype)
 
 # generate missing matrix R under linear and quadratic relation.
-def genR(Y, typ="Linear", a=2, b=0.4, inp=6.5, is_sparse=False):
+def genR(Y, typ="Linear", a=2, b=0.4, inp=6.5, is_sparse=True):
     typ = typ.lower()
     if "linear".startswith(typ):
         Thre = 5*Y - inp
@@ -662,7 +662,7 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
 
         #--------------------------------------------------------------------------------
         # Update bTheta 
-        LpTvOld = LpTBern(bThetaOld, beta0, conDenfs, X, Y, R, prob)
+        LpTvOld = LpTBern(bThetaOld, beta0, conDenfs, X, Y, R, prob, fct=10)
         ROld = (LossNow - Lcon)/LamT
         etaTOld = etaThetat(beta0, bThetaOld, LpTvOld, LamT, ROld)
         etaTOld = 100
@@ -714,7 +714,7 @@ def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=N
         return bThetaOld, t+1
 
 # New algorithm  to optimize the bTheta when X is Bernoulli 
-def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=None, tol=1e-4, prob=0.1, ErrOpts=0):
+def BetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=1, log=0, betainit=None, tol=1e-4, prob=0.1, ErrOpts=0):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -769,7 +769,7 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
         # Compute L (without penalty items) 
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            LvNow = missdepL(bTheta0, betaOld, f, X, Y, R, sXs)
+            LvNow = missdepL(bTheta0, betaOld, f, X, Y, R, fct=10)
         else:
             LvNow = LBern(bTheta0, betaOld, f, X, Y, R, prob)
         # Add L with penalty items.
@@ -782,7 +782,7 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            LpbvOld = missdepLpb(bTheta0, betaOld, conDenfs, X, Y, R, sXs)
+            LpbvOld = missdepLpb(bTheta0, betaOld, conDenfs, X, Y, R, fct=10)
         else:
             LpbvOld = LpbBern(bTheta0, betaOld, conDenfs, X, Y, R, prob)
         # compute the learning rate of beta
@@ -835,13 +835,12 @@ def BetaBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=1, log=0, betainit=
 
 
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli 
-def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etab=0.05, etaT=0.05):
+def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etab=0.05, etaT=0.05):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
     Y: the response matrix, n x m
     R: the Missing matrix, n x m
-    sXs: sample of X for MCMC, p x N
     conDenfs: a list to contain the likelihood function of Y|X, and its fisrt derivative and second derivative w.r.t second argument.
              [f, f2, f22]. In fact, f22 is not used.
     Trueparas: True paramter of beta and bTheta, a list like [beta0, bTheta0]
@@ -900,7 +899,7 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
 
         if NumN0Old > numExact:
-            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, sXs)
+            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, fct=10)
         else:
             LvNow = LBern(bThetaOld, betaOld, f, X, Y, R, prob)
         # Add L with penalty items.
@@ -912,11 +911,11 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, sXs)
+            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, fct=10)
         else:
             LpbvOld = LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
         # compute the learning rate of beta
-        etabOld = etabetat(betaOld, bThetaOld, LpbvOld, Lamb, QOld)
+        # etabOld = etabetat(betaOld, bThetaOld, LpbvOld, Lamb, QOld)
         etabOld = etab # 0.05 for linear setting
         betaNewRaw = betaOld - etabOld * LpbvOld
         # Using rho function to soften updated beta
@@ -931,15 +930,15 @@ def NewBern(MaxIters, X, Y, R, sXs, conDenfs, TrueParas, Cb=10, CT=1, log=0, bTh
         #--------------------------------------------------------------------------------
         # Update bTheta 
         if NumN0New > numExact:
-            LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, sXs)
-            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, sXs)
+            LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, fct=10)
+            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, fct=10)
         else:
-            LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs, X, Y, R, prob)
+            LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs, X, Y, R, prob, fct=10)
             LvNew = LBern(bThetaOld, betaNew, f, X, Y, R, prob)
         torch.cuda.empty_cache()
         LossNew = missdepLR(LvNew, bThetaOld, betaNew, LamT, Lamb)
         ROld = (LossNew - Lcon)/LamT
-        etaTOld = etaThetat(betaNew, bThetaOld, LpTvOld, LamT, ROld)
+        # etaTOld = etaThetat(betaNew, bThetaOld, LpTvOld, LamT, ROld)
         etaTOld = etaT # 0.05 for linear setting
         if len(etass) >= 1 and etaTOld >= etass[-1][-1]:
             etaTOld = etass[-1][-1]
