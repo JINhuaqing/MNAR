@@ -80,20 +80,15 @@ R = genR(Y, "linear", inp=0, is_sparse=True) #
 sXs = X.to_dense().reshape(-1, p).t().to_sparse()
 
 # I control the missing rate around 0.25
-LpTv1 = missdepLpT1(bThetainit, betainit, conDenfs, X, Y, R, sXs)
-LpTv0 = missdepLpT(bThetainit, betainit, conDenfs, X, Y, R, fct=10)
-LpTv2 = LpTBern(bThetainit, betainit, conDenfs, X, Y, R, prob=prob, fct=10)
-print(torch.norm(LpTv0-LpTv2))
-print(torch.norm(LpTv0-LpTv1))
+#LpTv1 = missdepLpT1(bThetainit, betainit, conDenfs, X, Y, R, sXs)
+#LpTv0 = missdepLpT(bThetainit, betainit, conDenfs, X, Y, R, fct=10)
+#LpTv2 = LpTBern(bThetainit, betainit, conDenfs, X, Y, R, prob=prob, fct=10)
+#print(torch.norm(LpTv0-LpTv2))
+#print(torch.norm(LpTv0-LpTv1))
 
-Lpbv1 = missdepLpb1(bThetainit, betainit, conDenfs, X, Y, R, sXs)
+#Lpbv1 = missdepLpb1(bThetainit, betainit, conDenfs, X, Y, R, sXs)
 Lpbv0 = missdepLpb(bThetainit, betainit, conDenfs, X, Y, R, fct=10)
 Lpbv2 = LpbBern(bThetainit, betainit, conDenfs, X, Y, R, prob=prob)
 print(torch.norm(Lpbv0-Lpbv2))
-print(torch.norm(Lpbv0-Lpbv1))
+#print(torch.norm(Lpbv0-Lpbv1))
 
-L1 = missdepL1(bThetainit, betainit, fn, X, Y, R, sXs)
-L0 = missdepL(bThetainit, betainit, fn, X, Y, R, fct=10)
-L2 = LBern(bThetainit, betainit, fn, X, Y, R, prob=prob)
-print(torch.norm(L0-L2))
-print(torch.norm(L0-L1))
