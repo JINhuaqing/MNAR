@@ -4,6 +4,7 @@ import numpy.random as npr
 from torch.distributions.normal import Normal
 from prettytable import PrettyTable
 from scipy.stats import truncnorm
+import time
 
 #----------------------------------------------------------------------------------------------------------------
 
@@ -145,7 +146,7 @@ def missdepLpT(bTheta, beta, conDenfs, X, Y, R, fct=10):
     """
     
     n, m, p = X.shape
-    sXs = X.to_dense().reshape(-1, p).t().to_sparse()
+    sXs = (X.to_dense().reshape(-1, p).t()[:, :10000]).to_sparse()
     _, N = sXs.shape
     f, f2, f22 = conDenfs
 
@@ -235,10 +236,9 @@ def missdepLpb(bTheta, beta, conDenfs, X, Y, R, fct=10):
     X: the covariate matrix, n x m x p
     Y: the response matrix, n x m
     R: the Missing matrix, n x m
-    sXs: p x N, samples of X_ij to compute the MCMC integration
     """
     n, m, p = X.shape
-    sXs = X.to_dense().reshape(-1, p).t().to_sparse()
+    sXs = (X.to_dense().reshape(-1, p).t()[:, :10000]).to_sparse()
     _, N = sXs.shape
 
     f, f2, _ = conDenfs
@@ -254,33 +254,30 @@ def missdepLpb(bTheta, beta, conDenfs, X, Y, R, fct=10):
     del XNon0
     TbX = bTheta + betaX # n x m
 
-
-    itm1 = ((f2(Y, TbX)/(f(Y, TbX)+seps)).unsqueeze(dim=2) * X.to_dense()).to_sparse() # n x m x p 
-    del X
-
-    bsXs = betaNon0.matmul(sXsNon0.to_dense()) # N
-
     lenSeg = int(np.ceil(m/fct))
-    itm2 = torch.zeros((m, n, p))
+    bsXs = betaNon0.matmul(sXsNon0.to_dense()) # N
+    sumRes = torch.zeros(p)
     for i in np.arange(0, m, lenSeg):
         lower, upper = i, i+lenSeg
+        TbXPart = TbX[:, lower:upper]
         YPart = Y[:, lower:upper]
         bThetaPart = bTheta[:, lower:upper]
+        XPart = (X.to_dense()[:, lower:upper, :]).to_sparse()
+        RPart = (R.to_dense()[:, lower:upper]).to_sparse()
+
+        itm1Part = ((f2(YPart, TbXPart)/(f(YPart, TbXPart)+seps)).unsqueeze(dim=2) * XPart.to_dense()).to_sparse() # n x m x p 
+
         itm2denPart = (f(YPart, bThetaPart, bsXs).mean(dim=-1) + seps)
         itm2numinPart =  f2(YPart, bThetaPart, bsXs).to_sparse() # ni x mi x N 
         itm2numPart = torch.stack([(itm2numinPart.to_dense()*sX).mean(dim=-1) for sX in sXs.to_dense()], dim=-1).to_sparse() # ni x mi x p
         itm2Part = (itm2numPart.to_dense()/itm2denPart.unsqueeze(dim=-1)).to_sparse()
-        itm2[:, lower:upper, :] = itm2Part.to_dense()
-    
-    torch.cuda.empty_cache()
-    itm = (R.to_dense().unsqueeze(dim=2) * (itm1.to_dense() - itm2)).to_sparse()
-    return -itm.to_dense().mean(dim=[0, 1])
+        itmPart = (RPart.to_dense().unsqueeze(dim=2) * (itm1Part.to_dense() - itm2Part.to_dense())).to_sparse()
+        sumRes += itmPart.to_dense().sum(dim=[0, 1])
+        torch.cuda.empty_cache()
+    return -sumRes/n/m
 
 
-
-
-# Compute the exact value of first derivative of L w.r.t beta when X is  Bernoulli
-def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
+def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5, fct=10):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -291,7 +288,7 @@ def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
     R: the Missing matrix, n x m
     prob: the successful probability of each entry of X
     """
-    _, _, p = X.shape 
+    n, m, p = X.shape
     f, f2, _ = conDenfs
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
@@ -303,24 +300,27 @@ def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5):
     betaX = torch.matmul(XNon0.to_dense(), betaNon0) # n x m
     TbX = bTheta + betaX # n x m
 
+    lenSeg = int(np.ceil(m/fct))
+    sumRes = torch.zeros(p)
+    for i in np.arange(0, m, lenSeg):
+        lower, upper = i, i+lenSeg
+        TbXPart = TbX[:, lower:upper]
+        YPart = Y[:, lower:upper]
+        bThetaPart = bTheta[:, lower:upper]
+        XPart = (X.to_dense()[:, lower:upper, :]).to_sparse()
+        RPart = (R.to_dense()[:, lower:upper]).to_sparse()
 
-    itm1 = ((f2(Y, TbX)/(f(Y, TbX)+seps)).unsqueeze(dim=2) * X.to_dense()).to_sparse() # n x m x p 
-    del X
-    
-    itm2den = intBernh(f, bTheta, beta, Y, prob) + seps
-    itm2num = intBernhX(f2, bTheta, beta, Y, prob).to_sparse()
+        itm1Part = ((f2(YPart, TbXPart)/(f(YPart, TbXPart)+seps)).unsqueeze(dim=2) * XPart.to_dense()).to_sparse() # n x m x p 
 
-    itm2 = (itm2num.to_dense()/itm2den.unsqueeze(dim=-1)).to_sparse()
+        itm2denPart = intBernh(f, bThetaPart, beta, YPart, prob) + seps
+        itm2numPart = intBernhX(f2, bThetaPart, beta, YPart, prob).to_sparse()
+        itm2Part = (itm2numPart.to_dense()/itm2denPart.unsqueeze(dim=-1)).to_sparse()
+        itmPart = (RPart.to_dense().unsqueeze(dim=2) * (itm1Part.to_dense() - itm2Part.to_dense())).to_sparse()
+        sumRes += itmPart.to_dense().sum(dim=[0, 1])
+        torch.cuda.empty_cache()
 
-    del itm2den, itm2num, 
     torch.cuda.empty_cache()
-
-    itm = (R.to_dense().unsqueeze(dim=2) * ((itm1 - itm2).to_dense())).to_sparse()
-    rv = -itm.to_dense().mean(dim=[0, 1])
-    del itm2, itm, itm1
-    torch.cuda.empty_cache()
-    return rv
-
+    return -sumRes/n/m
 
 #----------------------------------------------------------------------------------------------------------------
 
@@ -333,10 +333,9 @@ def missdepL(bTheta, beta, f, X, Y, R, fct=10):
     X: the covariate matrix, n x m x p
     Y: the response matrix, n x m
     R: the Missing matrix, n x m
-    sXs: p x N, samples of X_ij to compute the MCMC integration
     """
     n, m, p = X.shape
-    sXs = X.to_dense().reshape(-1, p).t().to_sparse()
+    sXs = (X.to_dense().reshape(-1, p).t()[:, :10000]).to_sparse()
     _, N = sXs.shape
     betaX = torch.matmul(X.to_dense(), beta)
     TbX = bTheta + betaX
@@ -449,15 +448,15 @@ def genXBin(*args, prob=0.1, is_sparse=True):
     if len(args) == 2:
         X = X.transpose()
     if is_sparse:
-        return torch.tensor(X).to(dtorchdtype).to_sparse()
+        return torch.tensor(X, device="cpu").to(dtorchdtype).to_sparse().cuda()
     else:
         return torch.tensor(X).to(dtorchdtype)
 
 # generate missing matrix R under linear and quadratic relation.
-def genR(Y, typ="Linear", a=2, b=0.4, inp=6.5, is_sparse=True):
+def genR(Y, typ="Linear", a=2, b=0.4, slop=5, inp=6.5, is_sparse=True):
     typ = typ.lower()
     if "linear".startswith(typ):
-        Thre = 5*Y - inp
+        Thre = slop*Y - inp
         probs = Normal(0, 1).cdf(Thre)
         ranUnif = torch.rand_like(probs)
         R = probs <= ranUnif
@@ -784,7 +783,7 @@ def BetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=1, log=0, betainit=None,
         if NumN0Old > numExact:
             LpbvOld = missdepLpb(bTheta0, betaOld, conDenfs, X, Y, R, fct=10)
         else:
-            LpbvOld = LpbBern(bTheta0, betaOld, conDenfs, X, Y, R, prob)
+            LpbvOld = LpbBern(bTheta0, betaOld, conDenfs, X, Y, R, prob, fct=10)
         # compute the learning rate of beta
         etabOld = etabetat(betaOld, bTheta0, LpbvOld, Lamb, QOld)
         etabOld = 100
@@ -835,7 +834,7 @@ def BetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=1, log=0, betainit=None,
 
 
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli 
-def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etab=0.05, etaT=0.05):
+def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetainit=None, betainit=None, tols=None, prob=0.5, ErrOpts=0, etab=0.05, etaT=0.05, fct=5):
     """
     MaxIters: max iteration number.
     X: the covariate matrix, n x m x p
@@ -851,8 +850,6 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
     tol: terminate tolerace.
     prob: sucessful probability of entry of X
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
-    etabinit: The initial learning rate of beta
-    etaTinit: The initial learning rate of btheta
     """
     n, m, p = X.shape
     f, f2, f22 = conDenfs
@@ -888,7 +885,9 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
     Losses = []
 
     # Starting optimizing.
+    t00 = time.time()
     for t in range(MaxIters):
+        t0 = time.time()
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
@@ -899,7 +898,7 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
 
         if NumN0Old > numExact:
-            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, fct=10)
+            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, fct=fct)
         else:
             LvNow = LBern(bThetaOld, betaOld, f, X, Y, R, prob)
         # Add L with penalty items.
@@ -911,9 +910,9 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, fct=10)
+            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, fct=fct)
         else:
-            LpbvOld = LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob)
+            LpbvOld = LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob, fct=fct)
         # compute the learning rate of beta
         # etabOld = etabetat(betaOld, bThetaOld, LpbvOld, Lamb, QOld)
         etabOld = etab # 0.05 for linear setting
@@ -930,18 +929,18 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         #--------------------------------------------------------------------------------
         # Update bTheta 
         if NumN0New > numExact:
-            LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, fct=10)
-            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, fct=10)
+            LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, fct=fct)
+            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, fct=fct)
         else:
-            LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs, X, Y, R, prob, fct=10)
+            LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs, X, Y, R, prob, fct=fct)
             LvNew = LBern(bThetaOld, betaNew, f, X, Y, R, prob)
         torch.cuda.empty_cache()
         LossNew = missdepLR(LvNew, bThetaOld, betaNew, LamT, Lamb)
         ROld = (LossNew - Lcon)/LamT
         # etaTOld = etaThetat(betaNew, bThetaOld, LpTvOld, LamT, ROld)
         etaTOld = etaT # 0.05 for linear setting
-        if len(etass) >= 1 and etaTOld >= etass[-1][-1]:
-            etaTOld = etass[-1][-1]
+        #if len(etass) >= 1 and etaTOld >= etass[-1][-1]:
+        #    etaTOld = etass[-1][-1]
         svdres = torch.svd(bThetaOld-LpTvOld*etaTOld)
         U, S, V =  svdres.U, svdres.S, svdres.V
         softS = (S-LamT*etaTOld).clamp_min(0)
@@ -973,6 +972,11 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
                 tb2.add_row([f"{t+1:>4}/{MaxIters}", f"{etaTOld:>3.3g}", f"{etabOld:>3.3g}", f"{Losses[-1]:>6.3f}", f"{LvNow.item():>2.1g}",  f"{torch.norm(beta0-betaNew).item():>6.3f}", f"{torch.norm(bTheta0-bThetaNew).item():>6.3f}",
                     f"{reCh:>6.4g}",  f"{betaNew.norm().item():>2.1f}", f"{bThetaNew.norm().item():>2.1f}", f"{(betaOld-betaNew).norm().item():>6.3g}", f"{(bThetaOld-bThetaNew).norm().item():>6.3g}", f"{NumN0New.item()}"])
                 print(tb2)
+                t1 = time.time()
+                print(f"The time for current iteration is {t1-t0:.3f}s ")
+                print(f"The average time for each iteration is {(t1-t00)/(t+1):.3f}s ")
+                print(f"The rank of estimate Theta is {torch.matrix_rank(bThetaNew)}.")
+                print(betaNew)
         #--------------------------------------------------------------------------------
         # if reCh is smaller than tolerance, stop the loop
         if t >= 1:
