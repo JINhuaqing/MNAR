@@ -40,7 +40,7 @@ def Cbsf(m): #logistic
 p = 200
 prob = 0.05
 # only needed for logistic setting
-r, s = 5, 5
+r, s = 5, 5 # r: rank of Theta, sparisty of beta
 CT = 2e-3 # logistic 
 #CT = 2e-2 # linear
 
