@@ -273,6 +273,8 @@ def EMNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, et
         # Change New to Old for starting next iteration
         #print(betaOld)
         betaOld, bThetaOld = betaNew, bThetaNew 
+        etab = etab * 0.995
+        etaT = etaT * 0.995
    #--------------------------------------------------------------------------------
     if ErrOpts:
         return betaOld, bThetaOld, t+1, Berrs, Terrs, betahats, bThetahats, Likelis

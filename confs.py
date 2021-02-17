@@ -39,6 +39,8 @@ def fn(y, m, bsXs=None, sigma=sigma):
         v = torch.exp(-(y-m)**2/2/sigma**2)
     return prefix*v
 
+def Logistic(m):
+    return torch.exp(m)/(1+torch.exp(m))
 
 def fln(y, m, bsXs=None):
     if bsXs is not None:

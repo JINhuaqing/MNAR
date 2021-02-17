@@ -133,11 +133,11 @@ def MarL(bTheta, beta, f, X, Y, R):
     R: the Missing matrix, n x m
     """
     betaX = torch.matmul(X, beta)
-    TbX = bTheta + betaX
+    TbX =  bTheta+betaX
 
     itm1 = torch.log(f(Y, TbX)+seps)
-
     itm = R * itm1
+    
     return -itm.mean(dim=[0, 1])
 
 
@@ -220,6 +220,15 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
     # Starting optimizing.
     t00 = time.time()
     for t in range(MaxIters):
+
+        if t>1 and t%300==0:
+            etab = etab * 0.97
+            etaT = etaT * 0.97
+            CT = CT*1.
+            Cb = Cb*1.
+            LamT = LamTfn(CT, n, m, p)
+            Lamb = Lambfn(Cb, n, m)
+            
         t0 = time.time()
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
@@ -230,8 +239,10 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
         # Compute L (without penalty items) 
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
         LvNow = MarL(bThetaOld, betaOld, f, X, Y, R)
+    
         # Add L with penalty items.
         LossNow = missdepLR(LvNow, bThetaOld, betaOld, LamT, Lamb)
+        #LossNow = LvNow+Lamb* betaOld.abs().sum()
         Losses.append(LossNow.item())
 
         #--------------------------------------------------------------------------------

@@ -456,10 +456,13 @@ def genXBin(*args, prob=0.1, is_sparse=True):
 def genR(Y, typ="Linear", a=2, b=0.4, slop=5, inp=6.5, is_sparse=True):
     typ = typ.lower()
     if "linear".startswith(typ):
+        #torch.manual_seed(10)
+        #torch.cuda.manual_seed_all(10)
         Thre = slop*Y - inp
         probs = Normal(0, 1).cdf(Thre)
         ranUnif = torch.rand_like(probs)
         R = probs <= ranUnif
+        
     elif "quadratic".startswith(typ):
         Thre = Y**2 + a*Y + b
         probs = Normal(0, 1).cdf(Thre)
@@ -883,11 +886,17 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         print(tb1)
     # The loss, i.e. L +  Lamdab_bTheta * ||bTheta||
     Losses = []
-
+    #NT = 100
     # Starting optimizing.
     t00 = time.time()
     for t in range(MaxIters):
         t0 = time.time()
+        #if t==200:
+        #    LamT = LamTfn(CT/100, n, m, p)
+        #    Lamb = Lambfn(Cb/100, n, m)
+        #    etab = etab/100.
+        #    etaT = etaT/100.
+
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
         NumN0Old = p - (betaOld.abs()==0).sum().to(dtorchdtype)
@@ -990,6 +999,8 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         #print(betaOld)
         #print(softS)
         betaOld, bThetaOld = betaNew, bThetaNew 
+        etaT = etaT * 0.995
+        etab = etab * 0.995
    #--------------------------------------------------------------------------------
     if ErrOpts:
         return betaOld, bThetaOld, t+1, Berrs, Terrs, betahats, bThetahats, Likelis, etass

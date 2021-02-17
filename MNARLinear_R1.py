@@ -54,7 +54,7 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p
 # m=n=100, 200, 400, 800, 1600, 3200
-n = m = 1600
+n = m = 800
 p = 50
 
 initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.875, 1.125]
@@ -80,7 +80,7 @@ conDenfs = [fn, fn2, fn22]
 # Termination  tolerance.
 tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
 #tols = [0, 1e-5, 5e-4]
-tols = [0, 5e-3, 1e-3] # tol, tolb, tolT
+#tols = [0, 5e-3, 1e-3] # tol, tolb, tolT
 # 100: 
 # Cb, CT = 1000, 10e-2; 
 # etab=0.05, etaT=0.02
@@ -94,14 +94,26 @@ tols = [0, 5e-3, 1e-3] # tol, tolb, tolT
 # Cb, CT = 600, 2e-2*0.2
 # etab, etaT = 0.90, 0.60
 # 1600: 
-# Cb, CT = 600, 2e-2*0.2
-# etab, etaT = 4.00, 0.60
+# Cb, CT = 700, 2e-2*0.2
+# etab, etaT = 3.00, 0.60
 # 3200: 
 # Cb, CT = 600, 2e-2*0.2; 
 # etab, etaT = 15.00, 0.60
 
-Cb, CT = 600, 2e-2*0.2
-etab, etaT = 4.00, 0.60
+## Decay lr
+# 100
+# Cb, CT = 1000, 20e-2; 
+# etab, etaT = 0.05, 0.02
+# 200
+# Cb, CT = 600, 4.0e-2
+# etab, etaT = 0.2, 0.1
+# 400
+# Cb, CT = 600, 3e-2*2.0
+# etab, etaT = 0.25, 0.08
+
+Cb, CT = 600, 2e-2*0.5
+etab, etaT = 1.00, 0.60
+
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
 params["n"] = n
@@ -113,9 +125,9 @@ params["Y|X_type"] = "Normal"
 pprint.pprint(params)
 
 #------------------------------------------------------------------------------------
-numSimu = 50 
+numSimu = 1 
 root = Path("./results")
-startIdx = 35
+startIdx = 1
 for i in range(numSimu):
     # generate the samples
     X = genXBin(n, m, p, prob=prob) 
@@ -136,15 +148,14 @@ for i in range(numSimu):
         f"The {i+1}th/{numSimu},"
         f"The Iteration number is {numI}, "
         f"The error of beta is {errb.item():.3f}, "
-        f"The error of bTheta is {errT.item():.3f}."
-)
+        f"The error of bTheta is {errT.item():.3f}.")
 
         curResult = {}
         curResult["numI"] = numI
         curResult["Cb"] = Cb
         curResult["CT"] = CT
-        curResult["errb"] = errb
-        curResult["errT"] = errT 
+        curResult["errb"] = errb.cpu().numpy()
+        curResult["errT"] = errT.cpu().numpy()
         curResult["Berrs"] = Berrs
         curResult["Terrs"] = Terrs
         curResult["betahat"] = betahat.cpu().numpy()
