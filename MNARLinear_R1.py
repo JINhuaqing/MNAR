@@ -8,7 +8,7 @@ import time
 import argparse
 import pprint
 from pathlib import Path
-from confs import fn, fn2, fn22
+from confs import fn, fn2, fn22, LogFn
 
 cudaid = 2
 loglv = 2
@@ -54,8 +54,45 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p
 # m=n=100, 200, 400, 800, 1600, 3200
-n = m = 800
+n = m = 200
 p = 50
+
+# Termination  tolerance.
+tols = [2e-6, 0, 0] # [0.5, 1.5]
+#tols = [0, 5e-3, 1e-3] # tol, tolb, tolT
+## Decay lr
+# 100
+# Cb, CT = 1000, 20e-2; 
+# etab, etaT = 0.05, 0.02
+# 200
+# Cb, CT = 600, 4.0e-2
+# etab, etaT = 0.2, 0.1
+# 400
+# Cb, CT = 600, 3e-2*2.0
+# etab, etaT = 0.50, 0.10
+
+if m == 100:
+    Cb, CT = 1000, 20e-2
+    etab, etaT = 0.05, 0.02
+elif m == 200:
+    Cb, CT = 600, 4.0e-2
+    etab, etaT = 0.2, 0.1
+elif m == 400 and p == 50:
+    Cb, CT = 600, 3e-2*2.0
+    etab, etaT = 0.50, 0.10
+elif m == 400 and p == 100:
+    Cb, CT = 600, 3e-2*2.0
+    etab, etaT = 0.60, 0.10
+elif m == 800:
+    Cb, CT = 600, 3e-2*1.0
+    etab, etaT = 1.80, 0.15
+elif m == 1600 and p == 50:
+    Cb, CT = 600, 2e-2*2.0
+    etab, etaT = 7.00, 0.10
+elif m == 1600 and p == 100:
+    Cb, CT = 600, 2e-2*2.0
+    etab, etaT = 7.00, 0.10
+
 
 initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.875, 1.125]
 initthetapref = 1 + (torch.rand(n, m)-1/2)/4
@@ -72,47 +109,11 @@ TrueParas = [beta0, bTheta0]
 betainit = beta0 * initbetapref
 bThetainit = bTheta0 * initthetapref
 # The likelihood and its derivatives of Y|X
-conDenfs = [fn, fn2, fn22]
+conDenfs = [fn, fn2, fn22, LogFn]
 
 
 
 #------------------------------------------------------------------------------------
-# Termination  tolerance.
-tols = [2.7e-14, 2.65e-9, 1.9e-9] # [0.5, 1.5]
-#tols = [0, 1e-5, 5e-4]
-#tols = [0, 5e-3, 1e-3] # tol, tolb, tolT
-# 100: 
-# Cb, CT = 1000, 10e-2; 
-# etab=0.05, etaT=0.02
-# 200: 
-# Cb, CT = 600, 2.4e-2
-# etab=0.1, etaT=0.1
-# 400: 
-# Cb, CT = 600, 2e-2*2.0
-# etab, etaT = 0.25, 0.08
-# 800: 
-# Cb, CT = 600, 2e-2*0.2
-# etab, etaT = 0.90, 0.60
-# 1600: 
-# Cb, CT = 700, 2e-2*0.2
-# etab, etaT = 3.00, 0.60
-# 3200: 
-# Cb, CT = 600, 2e-2*0.2; 
-# etab, etaT = 15.00, 0.60
-
-## Decay lr
-# 100
-# Cb, CT = 1000, 20e-2; 
-# etab, etaT = 0.05, 0.02
-# 200
-# Cb, CT = 600, 4.0e-2
-# etab, etaT = 0.2, 0.1
-# 400
-# Cb, CT = 600, 3e-2*2.0
-# etab, etaT = 0.25, 0.08
-
-Cb, CT = 600, 2e-2*0.5
-etab, etaT = 1.00, 0.60
 
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
@@ -125,7 +126,7 @@ params["Y|X_type"] = "Normal"
 pprint.pprint(params)
 
 #------------------------------------------------------------------------------------
-numSimu = 1 
+numSimu = 10
 root = Path("./results")
 startIdx = 1
 for i in range(numSimu):
@@ -137,7 +138,6 @@ for i in range(numSimu):
     # I control the missing rate around 0.25
     MissRate = R.to_dense().sum()/R.to_dense().numel()
     params["MissRate"] = MissRate
-    #print(MissRate)
 #----------------------------------------------------------------------------------------------------
     print(f"The {i+1}th/{numSimu}")
     if (i+1) >= startIdx:
@@ -152,15 +152,20 @@ for i in range(numSimu):
 
         curResult = {}
         curResult["numI"] = numI
+        curResult["X"] = X.to_dense().cpu().numpy()
+        curResult["Y"] = Y.cpu().numpy()
+        curResult["R"] = R.to_dense().cpu().numpy()
         curResult["Cb"] = Cb
         curResult["CT"] = CT
         curResult["errb"] = errb.cpu().numpy()
         curResult["errT"] = errT.cpu().numpy()
         curResult["Berrs"] = Berrs
         curResult["Terrs"] = Terrs
+        curResult["beta0"] = beta0.cpu().numpy()
+        curResult["bTheta0"] = bTheta0.cpu().numpy()
         curResult["betahat"] = betahat.cpu().numpy()
         curResult["bThetahat"] = bThetahat.cpu().numpy()
 
-        filName = f"MNAR_linear_p{p}_m{m}_simu{i+1}_iter{numI}.pkl"
+        filName = f"MNAR_linear_p{p}_m{m}_simu{i+1}_iter{numI}_emp.pkl"
         with open(root/filName, "wb") as f:
             pickle.dump([params, curResult], f)

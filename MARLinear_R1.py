@@ -8,7 +8,7 @@ import timeit
 import time
 import pprint
 from pathlib import Path
-from confs import fn, fn2, fn22
+from confs import fn, fn2, fn22, LogFn
 
 cudaid = 2
 # bs for prob = 1000/n/m 
@@ -25,10 +25,10 @@ bs = {
 torch.cuda.set_device(cudaid)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
-torch.manual_seed(1) # cpu
-torch.cuda.manual_seed(1) #gpu
-np.random.seed(1) #numpy
-random.seed(1) #random and transforms
+torch.manual_seed(0) # cpu
+torch.cuda.manual_seed(0) #gpu
+np.random.seed(0) #numpy
+random.seed(0) #random and transforms
 torch.backends.cudnn.deterministic=True # cudnn
 
 #------------------------------------------------------------------------------------
@@ -43,13 +43,14 @@ if cuda:
 #------------------------------------------------------------------------------------
 # Set the number of n, m, p
 # N is number of samples used for MCMC
-n = m = 200
-p = 50
+n = m = 100
+p = 50 # under seed 0 
+# p = 100 under seed 1
 
 # Termination  tolerance.
-loglv = 2
-tols = [0, 0, 0]
-tols = [0, 1e-6, 1e-4] # 0, Beta, theta
+loglv = 0
+tols = [2e-6, 0, 0]
+#tols = [0, 1e-6, 1e-4] # 0, Beta, theta
 # 100: 
 # Cb, CT = 1000, 10e-2; 
 # etab, etaT = 0.05, 0.02
@@ -64,9 +65,37 @@ tols = [0, 1e-6, 1e-4] # 0, Beta, theta
 # etab, etaT = 0.90, 0.08
 # 1600
 # Cb, CT = 800, 5e-2
-Cb, CT = 600.0,4e-2
-#etab, etaT = 0.01, 0.01
-etab, etaT = 0.5, 0.5
+if m == 100 and p == 50:
+    Cb, CT = 2000, 10e-2
+    etab, etaT = 0.15, 0.20
+if m == 100 and p == 100:
+    Cb, CT = 600, 10e-2
+    etab, etaT = 0.20, 0.10
+elif m == 200 and p == 50:
+    Cb, CT = 1000, 8e-2
+    etab, etaT = 0.23, 0.10
+elif m == 200 and p == 100:
+    Cb, CT = 800, 8e-2
+    etab, etaT = 0.20, 0.10
+elif m == 400 and p == 50:
+    Cb, CT = 800, 8.0e-2
+    etab, etaT = 0.80, 0.10
+elif m == 400 and p == 100:
+    Cb, CT = 800, 8.0e-2
+    etab, etaT = 0.50, 0.10
+elif m == 800 and p == 50:
+    Cb, CT = 800, 8.0e-2
+    etab, etaT = 3.00, 0.10
+elif m == 800 and p == 100:
+    Cb, CT = 800, 8.0e-2
+    etab, etaT = 3.00, 0.10
+elif m == 1600 and p == 50:
+    Cb, CT = 800, 8.0e-2
+    etab, etaT = 11.30, 0.10
+elif m == 1600 and p == 100:
+    Cb, CT = 800, 8.0e-2
+    etab, etaT = 12.00, 0.10
+
 
 initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.75, 1.25]
 initthetapref = 1 + (torch.rand(n, m)-1/2)/4
@@ -85,7 +114,7 @@ betainit = beta0 * initbetapref
 bThetainit = bTheta0 * initthetapref
 #bThetainit = bTheta0
 # The likelihood and its derivatives of Y|X
-conDenfs = [fn, fn2, fn22]
+conDenfs = [fn, fn2, fn22, LogFn]
 
 
 #------------------------------------------------------------------------------------
@@ -104,7 +133,7 @@ pprint.pprint(params)
 #------------------------------------------------------------------------------------
 # The list to contain training errors 
 
-numSimu = 1
+numSimu = 50
 root = Path("./results")
 startIdx = 1
 
@@ -118,13 +147,12 @@ for i in range(numSimu):
     R = R.to_dense()
     # I control the missing rate around 0.25
     MissRate = R.sum()/R.numel()
-    print(R)
     print(MissRate)
     params["MissRate"] = MissRate
     #----------------------------------------------------------------------------------------------------
     print(f"The {i+1}th/{numSimu}")
     if (i+1) >= startIdx:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = MarNewBern(100000, X, Y, R, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = MarNewBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
         errb = torch.norm(beta0-betahat)
         errT = torch.norm(bTheta0-bThetahat)
 
@@ -137,15 +165,20 @@ for i in range(numSimu):
 
         curResult = {}
         curResult["numI"] = numI
+        curResult["X"] = X.cpu().numpy()
+        curResult["Y"] = Y.cpu().numpy()
+        curResult["R"] = R.cpu().numpy()
         curResult["Cb"] = Cb
         curResult["CT"] = CT
         curResult["errb"] = errb.cpu().numpy()
         curResult["errT"] = errT.cpu().numpy()
         curResult["Berrs"] = Berrs
         curResult["Terrs"] = Terrs
+        curResult["beta0"] = beta0.cpu().numpy()
+        curResult["bTheta0"] = bTheta0.cpu().numpy()
         curResult["betahat"] = betahat.cpu().numpy()
         curResult["bThetahat"] = bThetahat.cpu().numpy()
 
         filName = f"MAR_linear_p{p}_m{m}_simu{i+1}_iter{numI}.pkl"
-        #with open(root/filName, "wb") as f:
-        #    pickle.dump([params, curResult], f)
+        with open(root/filName, "wb") as f:
+            pickle.dump([params, curResult], f)

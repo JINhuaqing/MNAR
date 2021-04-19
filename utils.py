@@ -325,7 +325,7 @@ def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5, fct=10):
 #----------------------------------------------------------------------------------------------------------------
 
 # Compute the value of L with MCMC method for any distributions X.
-def missdepL(bTheta, beta, f, X, Y, R, fct=10):
+def missdepL(bTheta, beta, f, X, Y, R, fct=10, is_logf=False):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -340,7 +340,10 @@ def missdepL(bTheta, beta, f, X, Y, R, fct=10):
     betaX = torch.matmul(X.to_dense(), beta)
     TbX = bTheta + betaX
 
-    itm1 = torch.log(f(Y, TbX)+seps)
+    if is_logf:
+        itm1 = f(Y, TbX)
+    else:
+        itm1 = torch.log(f(Y, TbX)+seps)
 
     bsXs = beta.matmul(sXs.to_dense())
     # TbsXs = bTheta.unsqueeze(dim=-1) + bsXs
@@ -352,7 +355,10 @@ def missdepL(bTheta, beta, f, X, Y, R, fct=10):
         lower, upper = i, i+lenSeg
         YPart = Y[:, lower:upper]
         bThetaPart = bTheta[:, lower:upper]
-        itm2Part = torch.log(f(YPart, bThetaPart, bsXs).mean(dim=-1)+seps)
+        if is_logf:
+            itm2Part = torch.log(torch.exp(f(YPart, bThetaPart, bsXs)).mean(dim=-1)+seps)
+        else:
+            itm2Part = torch.log(f(YPart, bThetaPart, bsXs).mean(dim=-1)+seps)
         itm2[:, lower:upper] = itm2Part
     
 
@@ -362,7 +368,7 @@ def missdepL(bTheta, beta, f, X, Y, R, fct=10):
 
 
 # Compute the exact value of L when X is Bernoulli
-def LBern(bTheta, beta, f, X, Y, R, prob=0.5):
+def LBern(bTheta, beta, f, X, Y, R, prob=0.5, is_logf=False):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -375,9 +381,18 @@ def LBern(bTheta, beta, f, X, Y, R, prob=0.5):
     betaX = torch.matmul(X.to_dense(), beta)
     TbX = bTheta + betaX
 
-    itm1 = torch.log(f(Y, TbX)+seps)
+    if is_logf:
+        itm1 = f(Y, TbX)
+    else:
+        itm1 = torch.log(f(Y, TbX)+seps)
 
-    itm2 = torch.log(intBernh(f, bTheta, beta, Y, prob)+seps)
+    if is_logf:
+        def inpF(y, m, bsXs):
+            return torch.exp(f(y, m, bsXs))
+    else:
+        inpF = f
+
+    itm2 = torch.log(intBernh(inpF, bTheta, beta, Y, prob)+seps)
 
     itm = R.to_dense() * (itm1 - itm2)
     return -itm.mean(dim=[0, 1])
@@ -735,7 +750,7 @@ def BetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=1, log=0, betainit=None,
     n, m, p = X.shape
     f, f2, _ = conDenfs
     Lcon = -100
-    numExact = 14
+    numExact = 1
     # To contain the training errors of bTheta, respectively.
     Berrs = []
     Likelis = []
@@ -855,9 +870,14 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
     """
     n, m, p = X.shape
-    f, f2, f22 = conDenfs
+    if len(conDenfs) == 4:
+        is_logf = True
+        f = conDenfs[-1]
+    else:
+        is_logf = False
+        f = conDenfs[0]
     tol, tolb, tolT = tols
-    numExact = 14
+    numExact = 1
     Lcon = -10
     # To contain the training errors of bTheta and beta, respectively.
     Terrs = []
@@ -907,9 +927,9 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
 
         if NumN0Old > numExact:
-            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, fct=fct)
+            LvNow = missdepL(bThetaOld, betaOld, f, X, Y, R, fct=fct, is_logf=is_logf)
         else:
-            LvNow = LBern(bThetaOld, betaOld, f, X, Y, R, prob)
+            LvNow = LBern(bThetaOld, betaOld, f, X, Y, R, prob, is_logf=is_logf)
         # Add L with penalty items.
         LossNow = missdepLR(LvNow, bThetaOld, betaOld, LamT, Lamb)
         QOld = (LossNow - Lcon)/Lamb
@@ -919,9 +939,9 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
         if NumN0Old > numExact:
-            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs, X, Y, R, fct=fct)
+            LpbvOld = missdepLpb(bThetaOld, betaOld, conDenfs[:3], X, Y, R, fct=fct)
         else:
-            LpbvOld = LpbBern(bThetaOld, betaOld, conDenfs, X, Y, R, prob, fct=fct)
+            LpbvOld = LpbBern(bThetaOld, betaOld, conDenfs[:3], X, Y, R, prob, fct=fct)
         # compute the learning rate of beta
         # etabOld = etabetat(betaOld, bThetaOld, LpbvOld, Lamb, QOld)
         etabOld = etab # 0.05 for linear setting
@@ -938,11 +958,11 @@ def NewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, log=0, bThetain
         #--------------------------------------------------------------------------------
         # Update bTheta 
         if NumN0New > numExact:
-            LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs, X, Y, R, fct=fct)
-            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, fct=fct)
+            LpTvOld = missdepLpT(bThetaOld, betaNew, conDenfs[:3], X, Y, R, fct=fct)
+            LvNew = missdepL(bThetaOld, betaNew, f, X, Y, R, fct=fct, is_logf=is_logf)
         else:
-            LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs, X, Y, R, prob, fct=fct)
-            LvNew = LBern(bThetaOld, betaNew, f, X, Y, R, prob)
+            LpTvOld = LpTBern(bThetaOld, betaNew, conDenfs[:3], X, Y, R, prob, fct=fct)
+            LvNew = LBern(bThetaOld, betaNew, f, X, Y, R, prob, is_logf=is_logf)
         torch.cuda.empty_cache()
         LossNew = missdepLR(LvNew, bThetaOld, betaNew, LamT, Lamb)
         ROld = (LossNew - Lcon)/LamT

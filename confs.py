@@ -39,6 +39,18 @@ def fn(y, m, bsXs=None, sigma=sigma):
         v = torch.exp(-(y-m)**2/2/sigma**2)
     return prefix*v
 
+def LogFn(y, m, bsXs=None, sigma=sigma):
+    # y     : n x m
+    # m     : n x m 
+    # bsXs  : N
+    pi = torch.tensor([np.pi])
+    logPrefix = -0.5*torch.log(2*pi) - np.log(sigma)
+    if bsXs is not None:
+        logV = -(y.unsqueeze(-1)- (m.unsqueeze(-1) + bsXs))**2/2/sigma**2
+    else:
+        logV = -(y-m)**2/2/sigma**2
+    return logPrefix+logV
+
 def Logistic(m):
     return torch.exp(m)/(1+torch.exp(m))
 
@@ -54,6 +66,11 @@ def fln2(y, m , bsXs=None):
     else:
         return (2*y-1) * torch.exp(m)/ (1+torch.exp(m))**2
 
+def fln2_raw(y, m , bsXs=None):
+    if bsXs is not None:
+        return ((y-1).unsqueeze(-1) * torch.exp((y+1).unsqueeze(-1)*(m.unsqueeze(-1) + bsXs)) + y.unsqueeze(-1) * torch.exp(y.unsqueeze(-1)* (m.unsqueeze(-1) + bsXs)))/ (1+torch.exp((m.unsqueeze(-1) + bsXs)))**2
+    else:
+        return ((y-1) * torch.exp((y+1)*m) + y* torch.exp(y*m)) / (1+torch.exp(m))**2
 
 def fln22(y, m, bsXs=None):
     if bsXs is not None:

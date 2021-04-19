@@ -123,7 +123,7 @@ def MarLpb(bTheta, beta, conDenfs, X, Y, R):
 
 #----------------------------------------------------------------------------------------------------------------
 # Compute the value of L w.r.t beta for any distributions X under MAR setting
-def MarL(bTheta, beta, f, X, Y, R):
+def MarL(bTheta, beta, f, X, Y, R, is_logf=False):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -135,7 +135,10 @@ def MarL(bTheta, beta, f, X, Y, R):
     betaX = torch.matmul(X, beta)
     TbX =  bTheta+betaX
 
-    itm1 = torch.log(f(Y, TbX)+seps)
+    if is_logf:
+        itm1 = f(Y, TbX)
+    else:
+        itm1 = torch.log(f(Y, TbX)+seps)
     itm = R * itm1
     
     return -itm.mean(dim=[0, 1])
@@ -188,7 +191,13 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
     ErrOpts: whether output errors of beta and bTheta. 0 no, 1 yes
     """
     n, m, p = X.shape
-    f, f2, f22 = conDenfs
+    if len(conDenfs) == 4:
+        is_logf = True
+        f = conDenfs[-1]
+    else:
+        is_logf = False
+        f = conDenfs[0]
+
     tol, tolb, tolT = tols
     # To contain the training errors of bTheta and beta, respectively.
     Terrs = []
@@ -221,14 +230,6 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
     t00 = time.time()
     for t in range(MaxIters):
 
-        if t>1 and t%300==0:
-            etab = etab * 0.97
-            etaT = etaT * 0.97
-            CT = CT*1.
-            Cb = Cb*1.
-            LamT = LamTfn(CT, n, m, p)
-            Lamb = Lambfn(Cb, n, m)
-            
         t0 = time.time()
         #--------------------------------------------------------------------------------
         # To get the number of nonzeros entry in betaOld
@@ -238,7 +239,7 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
 
         # Compute L (without penalty items) 
         # If betaNew is truly sparse, compute exact integration, otherwise use MCMC
-        LvNow = MarL(bThetaOld, betaOld, f, X, Y, R)
+        LvNow = MarL(bThetaOld, betaOld, f, X, Y, R, is_logf=is_logf)
     
         # Add L with penalty items.
         LossNow = missdepLR(LvNow, bThetaOld, betaOld, LamT, Lamb)
@@ -248,7 +249,7 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
         #--------------------------------------------------------------------------------
         # This block is to update beta.
         # If betaOld is truly sparse, compute exact integration, otherwise use MCMC
-        betaNewRaw = betaOld-etab * MarLpb(bThetaOld, betaOld, conDenfs, X, Y, R)
+        betaNewRaw = betaOld-etab * MarLpb(bThetaOld, betaOld, conDenfs[:3], X, Y, R)
         # Using rho function to soften updated beta
         betaNew = SoftTO(betaNewRaw, etab*Lamb)
 
@@ -258,7 +259,7 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
 
         #--------------------------------------------------------------------------------
         # Update bTheta 
-        LpTvOld = MarLpT(bThetaOld, betaNew, conDenfs, X, Y, R)
+        LpTvOld = MarLpT(bThetaOld, betaNew, conDenfs[:3], X, Y, R)
         svdres = torch.svd(bThetaOld-LpTvOld*etaT)
         U, S, V =  svdres.U, svdres.S, svdres.V
         softS = (S-LamT*etaT).clamp_min(0)
@@ -306,6 +307,8 @@ def MarNewBern(MaxIters, X, Y, R, conDenfs, TrueParas, Cb=10, CT=1, etab=1e-3, e
         # Change New to Old for starting next iteration
         #print(betaOld)
         betaOld, bThetaOld = betaNew, bThetaNew 
+        etab = etab * 0.995
+        etaT = etaT * 0.995
    #--------------------------------------------------------------------------------
     if ErrOpts:
         return betaOld, bThetaOld, t+1, Berrs, Terrs, betahats, bThetahats, Likelis

@@ -8,7 +8,7 @@ import timeit
 import time
 import pprint
 from pathlib import Path
-from confs import fn, fn2, fn22
+from confs import fn, fn2, fn22, LogFn
 
 cudaid = 2
 # bs for prob = 1000/n/m 
@@ -44,10 +44,34 @@ if cuda:
 # Set the number of n, m, p
 # N is number of samples used for MCMC
 n = m = 200
-p = 50
+p = 100
+
+# Termination  tolerance.
+loglv = 2
+tols = [2e-6, 0, 0]
+#tols = [0, 5e-3, 1e-3]
+if m == 100 and p == 50: 
+    Cb, CT = 800, 8e-2
+    etab, etaT = 0.25, 0.11
+if m == 100 and p == 100: 
+    Cb, CT = 800, 8e-2
+    etab, etaT = 0.22, 0.11
+elif m == 200:
+    Cb, CT = 1000, 8e-2
+    etab, etaT = 0.35, 0.20
+elif m == 400:
+    Cb, CT = 800, 8e-2
+    etab, etaT = 0.20, 0.10
+elif m == 800:
+    Cb, CT = 800, 8e-2
+    etab, etaT = 0.50, 0.10
+elif m == 1600:
+    Cb, CT = 800, 8e-2; 
+    etab, etaT = 0.60, 0.10
 
 initbetapref = 1 + (torch.rand(p)-1/2)/4  #[0.75, 1.25]
 initthetapref = 1 + (torch.rand(n, m)-1/2)/4
+
 #------------------------------------------------------------------------------------
 # The successful probability of each entry of X
 prob =  1000/n/m
@@ -61,30 +85,11 @@ TrueParas = [beta0, bTheta0]
 betainit = beta0 * initbetapref
 bThetainit = bTheta0 * initthetapref
 # The likelihood and its derivatives of Y|X
-conDenfs = [fn, fn2, fn22]
+conDenfs = [fn, fn2, fn22, LogFn]
 
 
 
 #------------------------------------------------------------------------------------
-# Termination  tolerance.
-loglv = 2
-tols = [0, 0, 0]
-#tols = [0, 5e-3, 1e-3]
-# 100: 
-# Cb, CT = 1000, 10e-2; 
-# etab, etaT = 0.05, 0.02
-# 200
-#Cb, CT = 800, 5.1e-2
-#etab, etaT = 0.09, 0.05
-# 400
-# Cb, CT = 800, 5.0e-2
-# etab, etaT = 0.01, 0.01
-# 800 
-# Cb, CT = 800, 5e-2
-# etab, etaT = 0.90, 0.08
-# 1600
-Cb, CT = 800, 5.1e-2; 
-etab, etaT = 0.10, 0.10
 
 # The list to contain output results
 params = {"beta0":beta0.cpu().numpy(), "bTheta0":bTheta0.cpu().numpy(), "tols": tols, "CT":CT, "Cb":Cb }
@@ -113,13 +118,15 @@ for i in range(numSimu):
     X = X.to_dense()
     R = R.to_dense()
     # I control the missing rate around 0.25
-    MissRate = R.sum()/R.numel()
+    MissRate = 1 - R.sum()/R.numel()
     print(MissRate)
+    fadsf
+
     params["MissRate"] = MissRate
     #----------------------------------------------------------------------------------------------------
     print(f"The {i+1}th/{numSimu}")
     if (i+1) >= startIdx:
-        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = EMNewBern(100000, X, Y, R, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
+        betahat, bThetahat, numI, Berrs, Terrs, betahats, bThetahats, Likelis = EMNewBern(1000, X, Y, R, conDenfs, TrueParas=TrueParas, etab=etab, Cb=Cb, CT=CT, tols=tols, log=loglv, prob=prob, betainit=betainit, bThetainit=bThetainit, ErrOpts=1, etaT=etaT)
         errb = torch.norm(beta0-betahat)
         errT = torch.norm(bTheta0-bThetahat)
 
@@ -131,12 +138,17 @@ for i in range(numSimu):
 
         curResult = {}
         curResult["numI"] = numI
+        curResult["X"] = X.cpu().numpy()
+        curResult["Y"] = Y.cpu().numpy()
+        curResult["R"] = R.cpu().numpy()
         curResult["Cb"] = Cb
         curResult["CT"] = CT
         curResult["errb"] = errb.cpu().numpy()
         curResult["errT"] = errT.cpu().numpy()
         curResult["Berrs"] = Berrs
         curResult["Terrs"] = Terrs
+        curResult["beta0"] = beta0.cpu().numpy()
+        curResult["bTheta0"] = bTheta0.cpu().numpy()
         curResult["betahat"] = betahat.cpu().numpy()
         curResult["bThetahat"] = bThetahat.cpu().numpy()
 
