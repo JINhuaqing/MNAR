@@ -43,6 +43,8 @@ stds = X.std(axis=(0, 1))
 X = (X-means)/stds
 X = torch.tensor(X)
 
+X
+
 # #### Dichotomize the Y
 
 Y = Yraw.copy()

@@ -10,7 +10,7 @@ from confs import fln, fln2, fln22, fln2_raw
 import pandas as pd
 
 
-torch.cuda.set_device(3)
+torch.cuda.set_device(1)
 #------------------------------------------------------------------------------------
 # fix the random seed for several packages
 torch.manual_seed(0) # cpu
@@ -53,13 +53,15 @@ Y[Yraw>=thre] = 1
 Y[Yraw<thre] = 0
 Y = torch.tensor(Y)
 
-## Save the X and Y in txt form
-#Ynp = Y.cpu().numpy()
-#Xnp = X.cpu().numpy()
-#with open("./npData/Y.npz", "wb") as f:
+# # Save the X and Y in txt form
+# Ynp = Y.cpu().numpy()
+# Xnp = X.cpu().numpy()
+# with open("./npData/Y.npz", "wb") as f:
 #    np.save(f, Ynp)
-#with open("./npData/X.npz", "wb") as f:
+# with open("./npData/X.npz", "wb") as f:
 #    np.save(f, Xnp)
+#with open("./npData/rY.npz", "wb") as f:
+#   np.save(f, Yraw)
 
 # observed rate
 OR = 0.07 # 0.05, 0.06, 0.07, 0.08
@@ -72,10 +74,18 @@ conDenfsEM = [fln, fln2_raw, fln22]
 
 # ### Tuning parameters 
 
+def res2AUCs(res):
+    aucs = []
+    for i in range(len(res)):
+        auc = metrics.roc_auc_score(res[i][1], res[i][0])
+        aucs.append(auc)
+    return np.array(aucs)
+
+
 # Termination  tolerance.
 tols = [0, 0, 0]
-etab, etaT = 1.0, 0.2
-etabM, etaTM = 2.0, 0.4
+etab, etaT = 0.5, 0.1
+etabM, etaTM = 3.0, 0.6
 CbTs = [(20, 8e-3), (40, 4e-3), (100, 8e-3), (10, 8e-4), (80, 4e-3)]
 
 n, m, p = X.shape
@@ -90,7 +100,7 @@ bThetainit = torch.rand(n, m) + 0.1
 for CbT in CbTs:
     Cb, CT = CbT
     inpY = Y.clone()
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = EMRealDataAlg(250, X, inpY, R, conDenfsEM, etab=etab, etaT=etaT, 
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = EMRealDataAlg(200, X, inpY, R, conDenfsEM, etab=etab, etaT=etaT, 
                                                                              Cb=Cb, CT=CT, tols=tols, log=0, 
                                                                              betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
     
@@ -113,7 +123,7 @@ betainit = torch.zeros(p)
 bThetainit = torch.rand(n, m) + 0.1
 for CbT in CbTs:
     Cb, CT = CbT
-    marbetahat, marbThetahat, numI, betahats, bThetahats, Likelis = MarRealDataAlg(250, X, Y, R, conDenfs, etab=etab, etaT=etaT, 
+    marbetahat, marbThetahat, numI, betahats, bThetahats, Likelis = MarRealDataAlg(200, X, Y, R, conDenfs, etab=etab, etaT=etaT, 
                                                                              Cb=Cb, CT=CT, tols=tols, log=0, 
                                                                              betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
     
@@ -121,7 +131,7 @@ for CbT in CbTs:
     # marbetahat = torch.zeros(p) 
     # marbThetahat= torch.rand(n, m) + 0.1 
     sR = R.to_sparse()
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(100, X, Y, sR, conDenfs, etab=etabM, etaT=etaTM,
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(50, X, Y, sR, conDenfs, etab=etabM, etaT=etaTM,
                                                                           Cb=Cb, CT=CT, tols=tols, log=0, betainit=marbetahat, 
                                                                           bThetainit=marbThetahat, ErrOpts=1)
 
@@ -144,14 +154,13 @@ for CbT in CbTs:
     MARCVres.append([marestprobs.cpu().numpy(), gtY.cpu().numpy()])
     MNARCVres.append([estprobs.cpu().numpy(), gtY.cpu().numpy()])
 
-
-def res2AUCs(res):
-    aucs = []
-    for i in range(len(res)):
-        auc = metrics.roc_auc_score(res[i][1], res[i][0])
-        aucs.append(auc)
-    return aucs
-
+# +
+# aucs = {}
+# aucs["MAR"] = res2AUCs(MARCVres)
+# aucs["MNAR"] = res2AUCs(MNARCVres)
+# print(aucs["MNAR"]-aucs["MAR"])
+# print(aucs)
+# -
 
 aucs = {}
 aucs["EM"] = res2AUCs(EMCVres)
@@ -166,27 +175,23 @@ Cb, CT = CbTs[np.argmax(aucs["MNAR"])]
 
 # #### initial value of beta and bTheta and tuning parameters
 
-etab, etaT = 1, 0.2
-tols = [0, 0, 0]
-
 mnarres = []
 marres = []
 emres = []
 for expidx in range(1, 21):
+    print( f"Now it is {expidx}/20, " )
     R = YelpMissing(Yraw, OR=OR)
     R = torch.tensor(R)
     Rnp = R.cpu().numpy()
     with open(f"./npData/R_{int(1000*OR)}_{expidx}.npz", "wb") as f:
         np.save(f, Rnp)
 
-    print(
-    f"Now it is {expidx}/20, " )
     
     # EM 
     betainit = torch.zeros(p) 
     bThetainit = torch.rand(n, m) + 0.1
     inpY = Y.clone()
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = EMRealDataAlg(250, X, inpY, R, conDenfsEM, etab=etab, etaT=etaT, 
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = EMRealDataAlg(200, X, inpY, R, conDenfsEM, etab=etab, etaT=etaT, 
                                                                              Cb=emCb, CT=emCT, tols=tols, log=0, 
                                                                              betainit=betainit, bThetainit=bThetainit, ErrOpts=1)
     
@@ -202,7 +207,7 @@ for expidx in range(1, 21):
     # MAR
     betainit = torch.zeros(p) 
     bThetainit = torch.rand(n, m) + 0.1
-    marbetahat, marbThetahat, _, marbetahats, marbThetahats, marLikelis = MarRealDataAlg(250, X, Y, R, conDenfs, 
+    marbetahat, marbThetahat, _, marbetahats, marbThetahats, marLikelis = MarRealDataAlg(200, X, Y, R, conDenfs, 
                                                                                          etab=etab, etaT=etaT, 
                                                                                          Cb=marCb, CT=marCT, tols=tols,  log=0, 
                                                                                          betainit=betainit, bThetainit=bThetainit, 
@@ -211,7 +216,7 @@ for expidx in range(1, 21):
     # marbThetahat= torch.rand(n, m) + 0.1 
     sR = R.to_sparse()
     # MNAR
-    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(100, X, Y, sR, conDenfs, etab=etabM, etaT=etaTM,
+    betahat, bThetahat, numI, betahats, bThetahats, Likelis = RealDataAlg(50, X, Y, sR, conDenfs, etab=etabM, etaT=etaTM,
                                                                           Cb=Cb, CT=CT, tols=tols, log=0, betainit=marbetahat, 
                                                                           bThetainit=marbThetahat, ErrOpts=1)
 
