@@ -51,11 +51,21 @@ matX <- matrix(Xnp, nrow=m*n)
 
 
 # OR
-OR <- 60
+OR <- 80
 Rnp.ps <- paste0("./npData/R_", OR, "_", 1:20, ".npz")
 Rnp0 <- np$load(Rnp.ps[1])
 CTs <- c(1, 1e2, 1e3)
 Cbs <- c(1, 1e2, 1e3)
+CbTs <- list()
+CbTs[[1]] <- c(1, 1)
+CbTs[[2]] <- c(1, 1e2)
+CbTs[[3]] <- c(1, 1e3)
+CbTs[[4]] <- c(1e2, 1)
+CbTs[[5]] <- c(1e2, 1e2)
+CbTs[[6]] <- c(1e2, 1e3)
+CbTs[[7]] <- c(1e3, 1)
+CbTs[[8]] <- c(1e3, 1e2)
+CbTs[[9]] <- c(1e3, 1e3)
 
 # test time
 # alp.init <- rep(0, p)
@@ -65,22 +75,41 @@ Cbs <- c(1, 1e2, 1e3)
 # t1 <- Sys.time()
 # print(t1-t0)
 
-# Tuning Cb, CT
 alp.init <- rep(0, p)
 theta.init <- matrix(rnorm(n*m), nrow=m) + 0.1
-aucs <- c()
-for (Cb in Cbs){
-    for (CT in CTs){
-        res <- mimi.logi.fn(Ynp, matX, Rnp0, CT=CT, Cb=Cb, alp.init=alp.init, theta.init=theta.init)
-        probs <- post.mimi.fn(res)
-        cur.auc <- probs2auc(probs, Ynp, rYnp, Rnp0) 
-        aucs <- c(aucs, cur.auc)
-    }
+runfn.CbT <- function(idx){
+    print(idx)
+    Cb <- CbTs[[idx]][1]
+    CT <- CbTs[[idx]][2]
+    res <- mimi.logi.fn(Ynp, matX, Rnp0, CT=CT, Cb=Cb, alp.init=alp.init, theta.init=theta.init)
+    probs <- post.mimi.fn(res)
+    cur.auc <- probs2auc(probs, Ynp, rYnp, Rnp0) 
+    res <- list()
+    res$v <- cur.auc
+    res$CbT <- CbTs[[idx]]
+    res
 }
 
-idxs <- aucs2Idxs(aucs)
-selCb <- Cbs[idxs[1]]
-selCT <- CTs[idxs[2]]
+res.aucs <- mclapply(1:9, runfn.CbT, mc.cores=4)
+argidx <- which.max(sapply(res.aucs, function(x)x$v))
+CbT <- res.aucs[[argidx]]$CbT
+selCb <- CbT[1]
+selCT <- CbT[2]
+
+# Tuning Cb, CT
+# aucs <- c()
+# for (Cb in Cbs){
+#     for (CT in CTs){
+#         res <- mimi.logi.fn(Ynp, matX, Rnp0, CT=CT, Cb=Cb, alp.init=alp.init, theta.init=theta.init)
+#         probs <- post.mimi.fn(res)
+#         cur.auc <- probs2auc(probs, Ynp, rYnp, Rnp0) 
+#         aucs <- c(aucs, cur.auc)
+#     }
+# }
+
+# idxs <- aucs2Idxs(aucs)
+# selCb <- Cbs[idxs[1]]
+# selCT <- CTs[idxs[2]]
 
 runfn <- function(idx){
     Rnp.p <- Rnp.ps[idx]
@@ -88,7 +117,7 @@ runfn <- function(idx){
     Rnp <- np$load(Rnp.p)
     alp.init <- rep(0, p)
     theta.init <- matrix(rnorm(n*m), nrow=m) + 0.1
-    res <- mimi.logi.fn(Ynp, matX, Rnp0, CT=selCT, Cb=selCb, alp.init=alp.init, theta.init=theta.init)
+    res <- mimi.logi.fn(Ynp, matX, Rnp, CT=selCT, Cb=selCb, alp.init=alp.init, theta.init=theta.init)
     probs <- post.mimi.fn(res)
     cur.auc <- probs2auc(probs, Ynp, rYnp, Rnp) 
     res <- list()
@@ -104,7 +133,7 @@ runfn <- function(idx){
 #     Rnp <- np$load(Rnp.p)
 #     alp.init <- rep(0, p)
 #     theta.init <- matrix(rnorm(n*m), nrow=m) + 0.1
-#     res <- mimi.logi.fn(Ynp, matX, Rnp0, CT=selCT, Cb=selCb, alp.init=alp.init, theta.init=theta.init)
+#     res <- mimi.logi.fn(Ynp, matX, Rnp, CT=selCT, Cb=selCb, alp.init=alp.init, theta.init=theta.init)
 #     probs <- post.mimi.fn(res)
 #     cur.auc <- probs2auc(probs, Ynp, rYnp, Rnp) 
 #     res.aucs <- c(res.aucs, cur.auc)
