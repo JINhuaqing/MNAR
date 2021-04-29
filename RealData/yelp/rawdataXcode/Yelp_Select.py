@@ -76,7 +76,6 @@ numlist = [i[1] for i in ress]
 num = np.sum(numlist) 
 print(1-num/numtt)
 
-
 Customers = [i[0] for i in ress]
 Restaurants = [i[0] for i in Rests]
 print(Customers)
