@@ -7,22 +7,22 @@ from prettytable import PrettyTable
 from scipy.stats import truncnorm
 from confs import Logistic
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # This file contains the functions for main simulation for MAR settting
 #
 #
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # seps: small number to avoid zero in log funciton and denominator. 
-seps = 1e-15
+seps = 1e-199
 # dtorchdtype and dnpdtype are default data types used for torch package and numpy package, respectively.
 dtorchdtype = torch.float64
 dnpdtype = np.float64
 
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 
 # Compute the value of first derivative of L w.r.t bTheta for any distributions X under EM method
@@ -140,7 +140,7 @@ def EML(bTheta, beta, f, X, Y, is_logf=False):
     return -itm.mean(dim=[0, 1])
 
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 
 # New algorithm  to optimize the bTheta and beta when X is Bernoulli under EM and Y is linear

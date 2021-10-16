@@ -6,13 +6,13 @@ from torch.distributions.normal import Normal
 from prettytable import PrettyTable
 from scipy.stats import truncnorm
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # This file contains the functions for main simulation for MAR settting
 #
 #
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # seps: small number to avoid zero in log funciton and denominator. 
 seps = 1e-15
@@ -21,7 +21,7 @@ dtorchdtype = torch.float64
 dnpdtype = np.float64
 
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 
 # Compute the value of first derivative of L w.r.t bTheta with MCMC method for any distributions X under MAR setting
@@ -144,12 +144,12 @@ def MarL(bTheta, beta, f, X, Y, R, is_logf=False):
     return -itm.mean(dim=[0, 1])
 
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # To compute the Loss value with penalties. 
 # i.e. L + Lambda_T ||\bTheta|| + Lambda_b ||\beta||
 def MarLR(Lv, bTheta, beta, LamT, Lamb):
-   pass
+    pass
    # itm2 = LamT * torch.norm(bTheta, p="nuc")
    # itm3 = Lamb * beta.abs().sum()
    # return Lv + itm2 + itm3

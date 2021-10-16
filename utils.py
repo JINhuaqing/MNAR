@@ -6,21 +6,22 @@ from prettytable import PrettyTable
 from scipy.stats import truncnorm
 import time
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # This file contains the functions for main simulation.
 #
 #
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # seps: small number to avoid zero in log funciton and denominator. 
-seps = 1e-15
+seps = 1e-199
+seps = 0
 # dtorchdtype and dnpdtype are default data types used for torch package and numpy package, respectively.
 dtorchdtype = torch.float64
 dnpdtype = np.float64
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 
 # To compute the H_2 value when Y|X is normal or truncated normal
@@ -59,7 +60,7 @@ def Dshlowerfnorm(Y, X, beta, bTheta, sigma=0.5):
     Dh2 = H2v.abs().max().item()
     return Ds2, Dh2
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # The below Blist, intBernh, and intBernhX functions are to compute the 
 # exact integration when X is Bernoulli and beta is sparse ( nonzeros value of beta is less than 14)
@@ -129,7 +130,7 @@ def intBernhX(f, bTheta, beta, Y, prob):
         expX = torch.ones(p) * prob
         return f(Y, bTheta).unsqueeze(-1) * expX
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 
 # Compute the value of first derivative of L w.r.t bTheta with MCMC method for any distributions X.
@@ -322,7 +323,7 @@ def LpbBern(bTheta, beta, conDenfs, X, Y, R, prob=0.5, fct=10):
     torch.cuda.empty_cache()
     return -sumRes/n/m
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # Compute the value of L with MCMC method for any distributions X.
 def missdepL(bTheta, beta, f, X, Y, R, fct=10, is_logf=False):
@@ -397,7 +398,7 @@ def LBern(bTheta, beta, f, X, Y, R, prob=0.5, is_logf=False):
     itm = R.to_dense() * (itm1 - itm2)
     return -itm.mean(dim=[0, 1])
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # Just the \rho function in optimization algorithm
 def SoftTO(x, a):
@@ -450,7 +451,7 @@ def LamTfn(C, n, m, p):
     return torch.tensor([C*rawv], dtype=dtorchdtype)
 
 
-#----------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------------------------------------------
 
 # Generate X from Bernoulli distribution
 def genXBin(*args, prob=0.1, is_sparse=True):
@@ -620,10 +621,10 @@ def etaThetat(betaNew, bThetaOld, LpTNew, LamT, ROld, ajr=0.5):
     eta1tv = ((wtbThetaOld - bThetaOld)**2).sum()/GThetav
     #print(((wtbThetaOld - bThetaOld)**2).sum(), GThetav, (wtbThetaOld - bThetaOld).norm())
     return ajr*eta1tv.item()
-    
 
 
-#----------------------------------------------------------------------------------------------------------------
+
+# ----------------------------------------------------------------------------------------------------------------
 
 # New algorithm  to optimize the bTheta when X is Bernoulli 
 def BthetaBern(MaxIters, X, Y, R, conDenfs, TrueParas, CT=1, log=0, bThetainit=None, tol=1e-4, prob=0.5, ErrOpts=0):
