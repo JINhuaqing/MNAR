@@ -287,9 +287,6 @@ def lossLBern(bTheta, beta, f, X, Y, R, prob, fct=10, is_logf=False):
     
     n, m, p = X.shape
     # Choose the first
-
-
-    
     YvecP = Y[R.to_dense().bool()] # M 
     bThetaVecP = bTheta[R.to_dense().bool()] # M 
     XvecP = X.to_dense()[R.to_dense().bool()].to_sparse() # M x p
@@ -436,6 +433,22 @@ def lossLpTBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
     return itm
 
 
+# calaulte the updated bTheta under MNAR for linear, approximately
+# I didn't check it before. 
+# the theta is before soft-thresholding
+def mnarLinearUpdateThetaApprox(X, Y, R, bThetaOld, beta, sigma=5):
+    bThetaNew = bThetaOld.clone()
+    betaX = X.to_dense().matmul(beta)
+    mu = torch.mean(betaX)
+    sigma2sq = torch.var(betaX)
+    sigma1sq = sigma**2
+    YvecP = Y[R.to_dense().bool()] # M 
+    betaXvecP = betaX[R.to_dense().bool()]
+    bThetaNewVecP = (YvecP * sigma2sq + mu * sigma1sq  - (sigma1sq+sigma2sq)*betaXvecP)/sigma2sq
+    bThetaNew[R.to_dense().bool()] = bThetaNewVecP
+    return bThetaNew
+
+
 # ### MAR 
 
 # Compute the value of L with MCMC method for any distributions X under MAR model
@@ -557,6 +570,49 @@ def marLossLpb(bTheta, beta, conDenfs, X, Y, R):
     return -sumRes/n/m
 
 
+# calaulte the updated beta under MAR for linear
+# I didn't check it before. 
+# the beta is before soft-thresholding
+def marLinearUpdateBeta(X, Y, R, bTheta):
+    if not R.is_sparse:
+        R = R.to_sparse()
+    if not X.is_sparse:
+        X = X.to_sparse()
+    YvecP = Y[R.to_dense().bool()] # M 
+    bThetaVecP = bTheta[R.to_dense().bool()] # M 
+    XvecP = X.to_dense()[R.to_dense().bool()].to_sparse() #M x p
+    itm1 = ((YvecP-bThetaVecP).reshape(-1, 1) * XvecP.to_dense()).sum(axis=0)
+    itm2inv = XvecP.to_dense().T.matmul(XvecP.to_dense())
+    itm2 = torch.inverse(itm2inv)
+    betaHat = itm1.matmul(itm2)
+    return betaHat
+
+
+# calaulte the updated bTheta under MAR for linear
+# I didn't check it before. 
+# the theta is before soft-thresholding
+def marLinearUpdateTheta(X, Y, R, bThetaOld, beta):
+    bThetaNew = bThetaOld.clone()
+    betaX = X.to_dense().matmul(beta)
+    YvecP = Y[R.to_dense().bool()] # M 
+    betaXvecP = betaX[R.to_dense().bool()]
+    bThetaNewVecP = YvecP  - betaXvecP
+    bThetaNew[R.to_dense().bool()] = bThetaNewVecP
+    return bThetaNew
+
+
+# calculate the loss under MAR  andl linear setting
+# unchecked
+def marLinearLossL(X, Y, R, bTheta, beta, sigma):
+    n, m = Y.shape
+    YvecP = Y[R.to_dense().bool()] # M 
+    bThetaVecP = bTheta[R.to_dense().bool()] # M 
+    betaX = X.to_dense().matmul(beta)
+    betaXvecP = betaX[R.to_dense().bool()]
+    res = torch.sum(-(YvecP - bThetaVecP - betaXvecP)**2/2/sigma**2)/n/m
+    return res
+
+
 # ## EM
 
 # Compute the value of L w.r.t beta for any distributions X under EM setting
@@ -644,3 +700,124 @@ def emLossLpT(bTheta, beta, conDenfs, X, Y):
 
     itm = itm1/(m*n)
     return -itm
+
+
+# ## Misc
+
+# To compute the Loss value with penalties. 
+# i.e. L + Lambda_T ||\bTheta|| + Lambda_b ||\beta||
+def LossWP(Lv, bThetaS, beta, LamT, Lamb):
+    if len(bThetaS.shape) == 1:
+        itm2 = LamT * bThetaS.abs().sum()
+    else:
+        itm2 = LamT * torch.norm(bThetaS, p="nuc")
+    itm3 = Lamb * beta.abs().sum()
+    return Lv + itm2 + itm3
+
+
+# To generate bTheta_0, (Grand-truth of bTheta)
+def genbTheta(n, m, rank=None, sigVs=None):
+    bTheta = torch.randn(n, m) * 7
+    if rank is None:
+        rank = len(sigVs)
+    U, S, V = torch.svd_lowrank(bTheta)
+    idx = torch.randperm(S.shape[0])[:rank]
+    if sigVs is not None:
+        sigVs = torch.tensor(sigVs, dtype=dtorchdtype)
+        bTheta = U[:, :rank].matmul(torch.diag(sigVs)).matmul(V[:, :rank].transpose(1, 0))
+    else:
+        bTheta = U[:, idx].matmul(torch.diag(torch.ones(rank)*16)).matmul(V[:, idx].transpose(1, 0))
+    return bTheta 
+
+
+# To compute the Lambda_bTheta
+# just constant before the penalty item of bTheta
+def LamTfn(C, n, m, p):
+    d = np.sqrt(m*n)
+    rawvs = [np.sqrt(np.log(d)/d), (np.log(p))**(1/4)/np.sqrt(d)]
+    rawv = np.max(rawvs)
+    return torch.tensor([C*rawv], dtype=dtorchdtype)
+
+
+# To compute the Lambda_beta
+# just constant before the penalty item of beta
+def Lambfn(C, n, m):
+    rawv = np.sqrt(np.log(m+n))/m/n
+    return torch.tensor([C*rawv], dtype=dtorchdtype)
+
+
+# Just the \rho function in optimization algorithm
+def SoftTO(x, a):
+    rx = torch.zeros(x.shape)
+    idx1 = x > a
+    idx2 = x < -a
+    rx[idx1] = x[idx1] - a
+    rx[idx2] = x[idx2] + a 
+    return rx
+
+
+# Generatae Y when Y|X \sim N(m, sigma**2)
+def genYnorm(X, bTheta, beta, sigma=0.1): 
+    n, m, _ = X.shape
+    M = bTheta + X.to_dense().matmul(beta)
+    Y = torch.randn(n, m)*sigma + M
+    return Y
+
+
+# generatae Y when Y|X  is logistic
+def genYlogit(X, bTheta, beta):
+    M = bTheta + X.matmul(beta)
+    Marr = M.cpu().numpy()
+    probMarr = 1/(1+np.exp(-Marr))
+    Yarr = np.random.binomial(1, probMarr)
+    return torch.tensor(Yarr).to(dtorchdtype)
+
+
+# generate missing matrix R under linear and quadratic relation.
+def genR(Y, typ="Linear", a=2, b=0.4, slop=5, inp=6.5, is_sparse=True):
+    typ = typ.lower()
+    if "linear".startswith(typ):
+        #torch.manual_seed(10)
+        #torch.cuda.manual_seed_all(10)
+        Thre = slop*Y - inp
+        probs = Normal(0, 1).cdf(Thre)
+        ranUnif = torch.rand_like(probs)
+        R = probs <= ranUnif
+        
+    elif "quadratic".startswith(typ):
+        Thre = Y**2 + a*Y + b
+        probs = Normal(0, 1).cdf(Thre)
+        ranUnif = torch.rand_like(probs)
+        R = probs <= ranUnif
+    elif "fixed".startswith(typ):
+        probs = torch.zeros(Y.shape)
+        probs[Y==1] = 0.05
+        probs[Y==0] = 0.65
+        ranUnif = torch.rand_like(probs)
+        R = probs <= ranUnif
+    elif "mar".startswith(typ):
+        probs = torch.zeros(Y.shape) + 0.25
+        ranUnif = torch.rand_like(probs)
+        R = probs <= ranUnif
+    else:
+        raise TypeError("Wrong dependence typ!")
+    if is_sparse:
+        return R.to(dtorchdtype).to_sparse()
+    else:
+        return R.to(dtorchdtype)
+
+
+# Generate X from Bernoulli distribution
+def genXBin(*args, prob=0.1, is_sparse=True):
+    assert len(args) in [2, 3]
+    p, size = args[-1], args[:-1]
+    X = npr.uniform(0, 1, args)
+    idx0, idx1 = X>=prob, X<prob
+    X[idx0] = 0 
+    X[idx1] = 1
+    if len(args) == 2:
+        X = X.transpose()
+    if is_sparse:
+        return torch.tensor(X, device="cpu").to(dtorchdtype).to_sparse().cuda()
+    else:
+        return torch.tensor(X).to(dtorchdtype)

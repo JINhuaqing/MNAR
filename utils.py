@@ -507,7 +507,7 @@ def genbTheta(n, m, rank=None, sigVs=None):
     bTheta = torch.randn(n, m) * 7
     if rank is None:
         rank = len(sigVs)
-    U, S, V = torch.svd(bTheta)
+    U, S, V = torch.svd_lowrank(bTheta)
     idx = torch.randperm(S.shape[0])[:rank]
     if sigVs is not None:
         sigVs = torch.tensor(sigVs, dtype=dtorchdtype)

@@ -4,7 +4,7 @@ import numpy as np
 from scipy.stats import norm as STN
 import torch
 
-sigma = 1
+sigma = 5
 a, b = -10, 10 
 
 def torchstnpdf(y):
@@ -70,9 +70,7 @@ def fln2_raw(y, m , bsXs=None):
     else:
         return ((y-1) * torch.exp((y+1)*m) + y* torch.exp(y*m)) / (1+torch.exp(m))**2
 
-# +
-## useless 
-# -
+# ## useless 
 
 def ftn(y, m, bsXs=None, sigma=sigma, a=a, b=b):
     # y     : n x m

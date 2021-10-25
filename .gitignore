@@ -15,3 +15,4 @@ RealData/yelp/.ipynb_checkpoints/
 !RealData/yelp/finalres/*.pkl
 results/*
 *.npz
+MovieLens/
