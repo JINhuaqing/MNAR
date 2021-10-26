@@ -100,7 +100,7 @@ def lossLpT(bTheta, beta, conDenfs, X, Y, R, fct=10, N=10000):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     beta = beta[idxNon0] # p0 x 1
     sXs = sXs.to_dense()[idxNon0].to_sparse() # p0 x N
     X = X.to_dense()[:, :, idxNon0].to_sparse() # n x m x p0
@@ -159,7 +159,7 @@ def lossLpb(bTheta, beta, conDenfs, X, Y, R, fct=10, N=10000):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     betaNon0 = beta[idxNon0]
     sXsNon0 = sXs.to_dense()[idxNon0].to_sparse()
     XNon0 = X.to_dense()[:, :, idxNon0].to_sparse()
@@ -223,16 +223,22 @@ def Blist(s):
 
 
 # Compute the exact integration of \int f(Y, bTheta + beta\trans X ) g(X) dX when beta is sparse
-def intBernh(f, bTheta, beta, Y, prob):
+def intBernh(f, bTheta, beta, Y, probs):
     idxNon0 = torch.nonzero(beta).view(-1)
     s = (beta != 0).sum().to(dtorchdtype).item()
     s = int(s)
+    if isinstance(probs, float) or len(probs)==1:
+        probs = torch.ones(beta.shape) * probs
+    else:
+        probs = torch.tensor(probs)
     if s != 0:
         Blistmat = torch.tensor(Blist(s))
         beta = beta[idxNon0]
+        probs = probs[idxNon0]
         Blstsum = Blistmat.sum(1)
         sum1 = f(Y, bTheta, Blistmat.matmul(beta)) # n x m x 2^s
-        sum2 = prob**Blstsum * (1-prob)**(s-Blstsum) # 2^s
+        sum2 = torch.prod(probs**Blistmat * (1-probs)**(1-Blistmat), axis=1) # 2^s
+        #sum2 = prob**Blstsum * (1-prob)**(s-Blstsum) # 2^s
         summ = sum1 * sum2
         return summ.sum(-1)
     else:
@@ -241,20 +247,26 @@ def intBernh(f, bTheta, beta, Y, prob):
 
 
 # Compute the exact integration of \int f(Y, bTheta + beta\trans X ) X g(X) dX when beta is sparse
-def intBernhX(f, bTheta, beta, Y, prob):
+def intBernhX(f, bTheta, beta, Y, probs):
     p = beta.shape[0]
     idxNon0 = torch.nonzero(beta).view(-1)
     s = (beta != 0).sum().to(dtorchdtype).item()
     s = int(s)
+    if isinstance(probs, float) or len(probs)==1:
+        probs = torch.ones(beta.shape) * probs
+    else:
+        probs = torch.tensor(probs)
     if s != 0:
         Blistmat = torch.tensor(Blist(s))
+        probsPart = probs[idxNon0]
         beta = beta[idxNon0]
         Blstsum = Blistmat.sum(1)
-        sum2 = prob**Blstsum * (1-prob)**(s-Blstsum) # 2^s
+        #sum2 = prob**Blstsum * (1-prob)**(s-Blstsum) # 2^s
+        sum2 = torch.prod(probsPart**Blistmat * (1-probsPart)**(1-Blistmat), axis=1) # 2^s
         summ = []
         for ii in range(p):
             if ii not in idxNon0:
-                sump = (f(Y, bTheta, Blistmat.matmul(beta))* prob * sum2).sum(-1) #n x m 
+                sump = (f(Y, bTheta, Blistmat.matmul(beta))* probs[ii] * sum2).sum(-1) #n x m 
                 summ.append(sump)
             else:
                 idx = torch.nonzero(idxNon0 == ii).view(-1)
@@ -263,12 +275,12 @@ def intBernhX(f, bTheta, beta, Y, prob):
                 summ.append(sump)
         return torch.stack(summ, dim=-1) 
     else:
-        expX = torch.ones(p) * prob
+        expX = torch.ones(p) * probs
         return f(Y, bTheta).unsqueeze(-1) * expX
 
 
 # Compute the value of L with MCMC method for any binary X
-def lossLBern(bTheta, beta, f, X, Y, R, prob, fct=10, is_logf=False):
+def lossLBern(bTheta, beta, f, X, Y, R, probs, fct=10, is_logf=False):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -312,7 +324,7 @@ def lossLBern(bTheta, beta, f, X, Y, R, prob, fct=10, is_logf=False):
         lower, upper = i, i+lenSeg
         YvecPP = YvecP[lower:upper]
         bThetaVecPP = bThetaVecP[lower:upper]
-        itm2Part = torch.log(intBernh(inpF, bThetaVecPP, beta, YvecPP, prob)+seps)
+        itm2Part = torch.log(intBernh(inpF, bThetaVecPP, beta, YvecPP, probs)+seps)
         itm2[lower:upper] = itm2Part
     
 
@@ -322,7 +334,7 @@ def lossLBern(bTheta, beta, f, X, Y, R, prob, fct=10, is_logf=False):
 
 
 # Compute the value of first derivative of L w.r.t beta with MCMC method for any binary X.
-def lossLpbBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
+def lossLpbBern(bTheta, beta, conDenfs, X, Y, R, probs, fct=10):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -344,7 +356,7 @@ def lossLpbBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     betaNon0 = beta[idxNon0]
     XNon0 = X.to_dense()[:, :, idxNon0].to_sparse()
 
@@ -367,8 +379,8 @@ def lossLpbBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
 
         itm1Part = ((f2(YvecPP, TbXvecPP)/(f(YvecPP, TbXvecPP)+seps)).unsqueeze(dim=1) * XvecPP.to_dense()).to_sparse() # lenSeg x p 
 
-        itm2denPart = intBernh(f, bThetaVecPP, beta, YvecPP, prob) + seps
-        itm2numPart = intBernhX(f2, bThetaVecPP, beta, YvecPP, prob).to_sparse()
+        itm2denPart = intBernh(f, bThetaVecPP, beta, YvecPP, probs) + seps
+        itm2numPart = intBernhX(f2, bThetaVecPP, beta, YvecPP, probs).to_sparse()
         itm2Part = (itm2numPart.to_dense()/itm2denPart.unsqueeze(dim=-1)).to_sparse()
         itmPart = (itm1Part.to_dense() - itm2Part.to_dense()).to_sparse()
         sumRes += itmPart.to_dense().sum(dim=0)
@@ -378,7 +390,7 @@ def lossLpbBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
 
 
 # Compute the value of first derivative of L w.r.t bTheta with MCMC method for binary X.
-def lossLpTBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
+def lossLpTBern(bTheta, beta, conDenfs, X, Y, R, probs, fct=10):
     """
     bTheta: the matrix parameter, n x m
     beta: the vector parameter, p 
@@ -401,7 +413,7 @@ def lossLpTBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     beta = beta[idxNon0] # p0 x 1
     X = X.to_dense()[:, :, idxNon0].to_sparse() # n x m x p0
     
@@ -421,8 +433,8 @@ def lossLpTBern(bTheta, beta, conDenfs, X, Y, R, prob, fct=10):
         lower, upper = i, i+lenSeg
         YvecPP = YvecP[lower:upper]
         bThetaVecPP = bThetaVecP[lower:upper]
-        itm2denPart = intBernh(f, bThetaVecPP, beta, YvecPP, prob) + seps
-        itm2numPart = intBernh(f2, bThetaVecPP, beta, YvecPP, prob)
+        itm2denPart = intBernh(f, bThetaVecPP, beta, YvecPP, probs) + seps
+        itm2numPart = intBernh(f2, bThetaVecPP, beta, YvecPP, probs)
         itm2Part = itm2numPart / itm2denPart
         itm2[lower:upper] = itm2Part
 
@@ -512,7 +524,7 @@ def marLossLpT(bTheta, beta, conDenfs, X, Y, R):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     beta = beta[idxNon0] # p0 x 1
     X = X.to_dense()[:, :, idxNon0].to_sparse() # n x m x p0
     
@@ -554,7 +566,7 @@ def marLossLpb(bTheta, beta, conDenfs, X, Y, R):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     betaNon0 = beta[idxNon0]
     XNon0 = X.to_dense()[:, :, idxNon0].to_sparse()
 
@@ -657,7 +669,7 @@ def emLossLpb(bTheta, beta, conDenfs, X, Y):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     betaNon0 = beta[idxNon0]
     XNon0 = X[:, :, idxNon0]
 
@@ -689,7 +701,7 @@ def emLossLpT(bTheta, beta, conDenfs, X, Y):
     # remove the elements whose corresponding betaK is zero
     idxNon0 = torch.nonzero(beta).view(-1)
     if idxNon0.shape[0] == 0:
-        idxNon0 = torch.tensor([0, 1, 2, 3, 4], dtype=torch.int64)
+        idxNon0 = torch.tensor([0, 1], dtype=torch.int64)
     beta = beta[idxNon0]
     X = X[:, :, idxNon0]
 
