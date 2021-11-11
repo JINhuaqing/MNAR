@@ -1,20 +1,13 @@
-## My working project about MNAR
+# The repo for MNAR project
 
-- Just run simulation for my supervisor
-- Hope it can be submitted by a good journal
+### Folders
 
-### The output name rules
+- YelpDataPost: The yelp data we used for real data application
 
-(SearchName)_(Xdistribution)_(Ydistribution)_(MCMCNum)_(ParameterOfX)_(rankAndSparisty)_(initialValue)_(mn).pkl
+- MovieLens: The movielens data we used for real data application
 
-**e.g:**
+- RealData: Contains the code and data we used for yelp data, a bit messy
 
-- RandGrid_Bern_TN_5w_01_r4s5_11_50.pkl
+- JMLRR2: The results for the simulation and realdata 
 
-### Bernulli
-
-- add code for Bernulli X
-
-- plot the error trend
-
-- run simulation for different m, n
+- testCode: Some useless code

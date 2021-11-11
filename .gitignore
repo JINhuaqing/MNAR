@@ -2,7 +2,6 @@
 plot_file/
 imgs*/
 *.swp
-outputs/PKL_OrgMissing/*.pkl
 *.pkl
 __pycache__/
 *.json
@@ -10,8 +9,6 @@ __pycache__/
 *.pdf
 tmp.*
 !Untitled.*
-.ipynb_checkpoints/
-RealData/yelp/.ipynb_checkpoints/
 !RealData/yelp/finalres/*.pkl
 results/*
 *.npz

@@ -86,7 +86,7 @@ resM = res2mean(resdic)
 
 typs = ["b-", "r--", "y-.", "g:", "c.", "kH"]
 flag = 0
-plt.figure(figsize=[5, 5])
+plt.figure(figsize=[6, 6], dpi=200)
 for ky, val in resM.items():
     plt.plot(1 - val['idx']/1000, val['v'], typs[flag], label=ky[:-3])
     flag += 1
@@ -124,7 +124,7 @@ diffRes = res2diff(resdic)
 # +
 typs = ["b+", "r*", "yo", "gh", "c.", "kH"]
 
-plt.figure(figsize=[20, 5])
+plt.figure(figsize=[24, 6], dpi=200)
 plt.subplots_adjust(wspace=0.3, hspace =1)
 for ii, OR in enumerate([80, 70, 60, 50]):
     plt.subplot(1, 4, ii+1)

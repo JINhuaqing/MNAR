@@ -60,7 +60,7 @@ Y = torch.tensor(Y)
 #    np.save(f, Ynp)
 # with open("./npData/X.npz", "wb") as f:
 #    np.save(f, Xnp)
-#with open("./npData/rY.npz", "wb") as f:
+# with open("./npData/rY.npz", "wb") as f:
 #   np.save(f, Yraw)
 
 # observed rate
