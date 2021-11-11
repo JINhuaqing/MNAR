@@ -3,6 +3,7 @@
 *.tar
 *.pdf
 *.npz
+*.RData
 results/*
 !YelpDataPost/*.pkl
 !MovieLens/*.pkl
