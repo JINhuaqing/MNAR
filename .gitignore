@@ -8,8 +8,8 @@ __pycache__/
 *.tar
 *.pdf
 tmp.*
-!Untitled.*
 !RealData/yelp/finalres/*.pkl
 results/*
 *.npz
 MovieLens/
+!YelpDataPost/*.pkl
