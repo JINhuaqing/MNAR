@@ -9,3 +9,5 @@ results/*
 !MovieLens/*.pkl
 !MovieLens/*.dat
 MovieLens/mvlensX.pkl
+linear*
+logi*
