@@ -10,3 +10,5 @@ results/*
 !MovieLens/*.dat
 MovieLens/mvlensX.pkl
 MovieLens/mvR3flatX.pkl
+linear*
+logi*
