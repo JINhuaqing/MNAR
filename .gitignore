@@ -9,3 +9,4 @@ results/*
 !MovieLens/*.pkl
 !MovieLens/*.dat
 MovieLens/mvlensX.pkl
+MovieLens/mvR3flatX.pkl

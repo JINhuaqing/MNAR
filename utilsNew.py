@@ -16,7 +16,7 @@ dnpdtype = np.float64
 
 # All the `lossL`, `lossLpT` and `lossLpb` functions for `MNAR`, `MAR` and `EM` are checked
 
-# ###  MNAR
+# ##  MNAR
 
 # Compute the value of L with MCMC method for any distributions X.
 def lossL(bTheta, beta, f, X, Y, R, fct=10, is_logf=False, N=10000):
@@ -195,7 +195,7 @@ def lossLpb(bTheta, beta, conDenfs, X, Y, R, fct=10, N=10000):
     return -sumRes/n/m
 
 
-# ### MNAR exact
+# ## MNAR exact
 
 # The below Blist, intBernh, and intBernhX functions are to compute the 
 # exact integration when X is Bernoulli and beta is sparse ( nonzeros value of beta is less than 14)
@@ -461,7 +461,7 @@ def mnarLinearUpdateThetaApprox(X, Y, R, bThetaOld, beta, sigma=5):
     return bThetaNew
 
 
-# ### MAR 
+# ## MAR 
 
 # Compute the value of L with MCMC method for any distributions X under MAR model
 def marLossL(bTheta, beta, f, X, Y, R, is_logf=False):
